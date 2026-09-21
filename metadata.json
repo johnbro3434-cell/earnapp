@@ -1,0 +1,6 @@
+{
+  "name": "EarnHub BD V20 Enterprise",
+  "description": "Enterprise micro-task earning platform featuring real-time wallet tracking, video tasks, multi-tier referral engine, instant bKash/Nagad transactions, and comprehensive admin CRM.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
