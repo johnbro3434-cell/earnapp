@@ -818,51 +818,6 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                 </form>
               </div>
             )}
-          </div>
-
-          {/* Withdraw Locked Rules Sidebar */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-              <h4 className="font-bold text-white text-sm flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                Locked Withdraw Rules
-              </h4>
-              <ul className="space-y-2.5 text-xs text-slate-300 leading-relaxed">
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-400 font-bold">•</span>
-                  <span>
-                    <strong>Free User Rule:</strong> Free accounts require admin permission or contacting support / referral member before withdrawing.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span>
-                    <strong>Paid Package Users:</strong> Users who deposit and activate any package can work and withdraw normally.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span>Paid user minimum withdrawal: <strong>৳ 460 TK</strong>.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span>Amounts must strictly be selected from authorized Cards.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span>Daily limit: exactly 1 withdrawal request per calendar day.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span>Standard 10% platform clearance fee deducted automatically.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 font-bold">•</span>
-                  <span>Operating hours: 8:00 AM to 11:00 PM daily.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
         </div>
       )}
 

@@ -31,8 +31,9 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownLeft,
+  Menu,
 } from 'lucide-react';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, removeToken } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { User, DepositRequest, WithdrawRequest, VideoTask, PaymentNumber, WebsiteSettings } from '../../types';
@@ -44,6 +45,7 @@ export function AdminPanel() {
   const [activeTab, setActiveTab] = useState<
     'analytics' | 'users' | 'tasks' | 'finance' | 'packages' | 'sliders' | 'broadcast' | 'settings'
   >('analytics');
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Analytics State
   const [stats, setStats] = useState<any>(null);
@@ -84,6 +86,9 @@ export function AdminPanel() {
   const [siteSettings, setSiteSettings] = useState<WebsiteSettings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Packages State
+  const [packagesList, setPackagesList] = useState<any[]>([]);
+
   useEffect(() => {
     loadAllAdminData();
   }, [activeTab]);
@@ -101,6 +106,9 @@ export function AdminPanel() {
       } else if (activeTab === 'tasks') {
         const data = await apiRequest('/api/admin/tasks');
         setTasksList(data.tasks || []);
+      } else if (activeTab === 'packages') {
+        const data = await apiRequest('/api/admin/packages');
+        setPackagesList(data.packages || []);
       } else if (activeTab === 'finance') {
         const [depData, wdrData, numData] = await Promise.all([
           apiRequest('/api/admin/deposits/pending'),
@@ -110,12 +118,25 @@ export function AdminPanel() {
         setPendingDeposits(depData.deposits || []);
         setPendingWithdraws(wdrData.withdraws || []);
         setPaymentNumbers(numData.paymentNumbers || []);
-      } else if (activeTab === 'settings') {
+      } else if (activeTab === 'settings' || activeTab === 'sliders') {
         const data = await apiRequest('/api/settings/public');
         setSiteSettings(data.settings);
       }
     } catch (e: any) {
       console.warn('Admin load error:', e);
+    }
+  };
+
+  const handleUpdatePackage = async (id: string, updatedFields: any) => {
+    try {
+      await apiRequest(`/api/admin/packages/${id}`, {
+        method: 'POST',
+        body: JSON.stringify(updatedFields),
+      });
+      showToast('success', 'Package Updated', 'VIP Package configuration saved successfully.');
+      loadAllAdminData();
+    } catch (e: any) {
+      showToast('error', 'Error', e.message);
     }
   };
 
@@ -319,64 +340,208 @@ export function AdminPanel() {
     }
   };
 
+  const navTabs = [
+    { id: 'analytics', label: 'Dashboard & Metrics', icon: LayoutDashboard },
+    { id: 'finance', label: 'Finance & Gateways', icon: DollarSign },
+    { id: 'users', label: 'User CRM & Wallets', icon: Users },
+    { id: 'tasks', label: 'Task Manager', icon: Film },
+    { id: 'packages', label: 'Investment Packages', icon: PackageIcon },
+    { id: 'sliders', label: 'Sliders & Marquee', icon: Sliders },
+    { id: 'broadcast', label: 'Broadcasts', icon: Bell },
+    { id: 'settings', label: 'System Settings', icon: Settings },
+  ];
+
   // Filtered user list
   const filteredUsers = userList.filter((u) =>
-    u.phone.toLowerCase().includes(userSearch.toLowerCase()) ||
-    u.referralCode.toLowerCase().includes(userSearch.toLowerCase())
+    (u.phone || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.referralCode || '').toLowerCase().includes(userSearch.toLowerCase())
   );
 
   return (
-    <div id="admin-panel-root" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-24 md:pb-12">
-      {/* Admin CRM Header Banner */}
-      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              Admin Portal • {admin?.role || 'Super Admin'}
-            </span>
-            <span className="text-xs text-slate-400 font-medium">Logged in: {admin?.name}</span>
+    <div id="admin-panel-root" className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row selection:bg-amber-500 selection:text-slate-950">
+      {/* Mobile Top Header */}
+      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 border-b border-slate-800 shrink-0 sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center font-extrabold text-sm">
+            EH
           </div>
-          <h2 className="text-2xl font-black text-white">EarnHub BD V20 Enterprise CRM</h2>
+          <div>
+            <h1 className="text-sm font-black text-white">EarnHub CRM</h1>
+            <p className="text-[10px] text-amber-400 font-semibold">{admin?.role || 'Super Admin'}</p>
+          </div>
         </div>
-
         <button
-          onClick={loadAllAdminData}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="p-2.5 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Refresh CRM Data</span>
+          <Menu className="w-5 h-5" />
         </button>
       </div>
 
-      {/* Module Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
-        {[
-          { id: 'analytics', label: 'Analytics', icon: LayoutDashboard },
-          { id: 'finance', label: 'Finance Engine', icon: DollarSign },
-          { id: 'users', label: 'User CRM', icon: Users },
-          { id: 'tasks', label: 'Task Manager', icon: Film },
-          { id: 'broadcast', label: 'Broadcasts', icon: Bell },
-          { id: 'settings', label: 'System Settings', icon: Settings },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              id={`tab-admin-${tab.id}`}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition ${
-                isActive
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Mobile Drawer / Sidebar Overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm md:hidden flex"
+          onClick={() => setMobileSidebarOpen(false)}
+        >
+          <div
+            className="w-72 bg-slate-900 h-full border-r border-slate-800 p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-left duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-6 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center font-black">
+                    EH
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-white">Enterprise CRM</h2>
+                    <span className="text-xs text-amber-400">{admin?.role || 'Admin'}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="space-y-1.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-1">
+                {navTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id as any);
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition text-left ${
+                        isActive
+                          ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-950/40'
+                          : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 space-y-3">
+              <div className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
+                <p className="text-xs font-bold text-white truncate">{admin?.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{admin?.phone}</p>
+              </div>
+              <button
+                onClick={() => {
+                  removeToken();
+                  window.location.reload();
+                }}
+                className="w-full py-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/30 font-bold text-xs flex items-center justify-center gap-2"
+              >
+                <Power className="w-4 h-4" />
+                <span>Secure Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Left-Side Sidebar */}
+      <aside className="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 flex-col justify-between p-6 shrink-0 sticky top-0 h-screen overflow-y-auto">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3 pb-6 border-b border-slate-800">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center font-black shadow-inner">
+              EH
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-white leading-tight">EarnHub BD</h2>
+              <span className="text-[11px] text-amber-400 font-extrabold tracking-wide uppercase">
+                {admin?.role || 'Super Admin'}
+              </span>
+            </div>
+          </div>
+
+          <nav className="space-y-1.5">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`sidebar-admin-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                    isActive
+                      ? 'bg-amber-500 text-slate-950 shadow-xl shadow-amber-950/50 font-black'
+                      : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="pt-6 border-t border-slate-800 space-y-3">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950 border border-slate-800/80">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <div className="overflow-hidden">
+              <p className="text-xs font-bold text-white truncate">{admin?.name || 'Admin User'}</p>
+              <p className="text-[10px] text-slate-400 truncate font-mono">{admin?.phone}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              removeToken();
+              window.location.reload();
+            }}
+            className="w-full py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Power className="w-4 h-4" />
+            <span>Secure Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 sm:p-8 space-y-6 overflow-x-hidden pb-24 md:pb-12">
+        {/* Top Header Bar inside Main Area */}
+        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                Secure Enterprise CRM
+              </span>
+              <span className="text-xs text-slate-400">Active Module: <strong className="text-white capitalize">{activeTab}</strong></span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white">
+              {activeTab === 'analytics' && 'Dashboard Overview & Real-Time Metrics'}
+              {activeTab === 'finance' && 'Finance Engine: Deposits & Payouts'}
+              {activeTab === 'users' && 'User CRM & Balance Management'}
+              {activeTab === 'tasks' && 'Sponsored Video Tasks Manager'}
+              {activeTab === 'packages' && 'VIP Investment Packages Control'}
+              {activeTab === 'sliders' && 'Marquee & Banner Announcements'}
+              {activeTab === 'broadcast' && 'System Notifications & Broadcasts'}
+              {activeTab === 'settings' && 'Platform Settings & Security'}
+            </h2>
+          </div>
+
+          <button
+            onClick={loadAllAdminData}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition cursor-pointer shrink-0"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh CRM Data</span>
+          </button>
+        </div>
 
       {/* 1. ANALYTICS MODULE */}
       {activeTab === 'analytics' && stats && (
@@ -762,6 +927,119 @@ export function AdminPanel() {
         </div>
       )}
 
+      {/* 4.5. PACKAGES MODULE */}
+      {activeTab === 'packages' && (
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-white">VIP Investment Packages Control</h3>
+              <p className="text-xs text-slate-400">Modify package pricing, daily income yields, and enable/disable VIP tiers instantly.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {packagesList.map((pkg) => (
+              <div key={pkg.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    {pkg.name}
+                  </span>
+                  <button
+                    onClick={() => handleUpdatePackage(pkg.id, { enabled: !pkg.enabled })}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${
+                      pkg.enabled
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                    }`}
+                  >
+                    {pkg.enabled ? 'ACTIVE' : 'DISABLED'}
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Price (TK):</span>
+                    <strong className="text-white font-mono">৳{pkg.price}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Daily Income:</span>
+                    <strong className="text-emerald-400 font-mono">৳{pkg.dailyIncome}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Validity Days:</span>
+                    <strong className="text-white font-mono">{pkg.validityDays} Days</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Videos / Day:</span>
+                    <strong className="text-white font-mono">{pkg.videosPerDay}</strong>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-900 flex gap-2">
+                  <button
+                    onClick={() => {
+                      const newPrice = prompt('Enter new price (TK):', pkg.price.toString());
+                      if (newPrice !== null) {
+                        const newDaily = prompt('Enter new daily income (TK):', pkg.dailyIncome.toString());
+                        if (newDaily !== null) {
+                          handleUpdatePackage(pkg.id, { price: Number(newPrice), dailyIncome: Number(newDaily) });
+                        }
+                      }
+                    }}
+                    className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer"
+                  >
+                    Edit Package Rates
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4.6. SLIDERS & MARQUEE MODULE */}
+      {activeTab === 'sliders' && siteSettings && (
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6 max-w-2xl">
+          <div>
+            <h3 className="text-lg font-bold text-white">Marquee Ticker & Announcements</h3>
+            <p className="text-xs text-slate-400">Update running announcement banner displayed across the member dashboard.</p>
+          </div>
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await apiRequest('/api/admin/settings', {
+                  method: 'POST',
+                  body: JSON.stringify(siteSettings),
+                });
+                showToast('success', 'Marquee Updated', 'Announcement ticker updated successfully live.');
+              } catch (err: any) {
+                showToast('error', 'Error', err.message);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Marquee Ticker Text (রানিং নোটিশ)</label>
+              <textarea
+                rows={3}
+                value={(siteSettings as any).marqueeText || '🎉 Welcome to EarnHub BD V20 Enterprise! Instant bKash & Nagad automated deposits & fast payouts.'}
+                onChange={(e) => setSiteSettings({ ...siteSettings, marqueeText: e.target.value } as any)}
+                className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition cursor-pointer"
+            >
+              Save Marquee Announcement
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* 5. BROADCAST MODULE */}
       {activeTab === 'broadcast' && (
         <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4 max-w-2xl">
@@ -1029,6 +1307,7 @@ export function AdminPanel() {
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }

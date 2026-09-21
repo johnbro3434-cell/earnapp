@@ -16,11 +16,28 @@ import { SalaryView } from './components/salary/SalaryView';
 import { PromotionView } from './components/promotion/PromotionView';
 import { MyAccountView } from './components/account/MyAccountView';
 import { AdminPanel } from './components/admin/AdminPanel';
+import { AdminLoginPage } from './components/admin/AdminLoginPage';
 
 function AppContent() {
   const { user, admin, isAdmin, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState<string>('home');
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
+  const [isSecretAdminRoute, setIsSecretAdminRoute] = useState<boolean>(false);
+
+  // Check URL hash/pathname for secret admin route
+  useEffect(() => {
+    const checkRoute = () => {
+      const isSecret = window.location.hash === '#admin-secret' || window.location.pathname === '/admin-secret';
+      setIsSecretAdminRoute(isSecret);
+    };
+    checkRoute();
+    window.addEventListener('hashchange', checkRoute);
+    window.addEventListener('popstate', checkRoute);
+    return () => {
+      window.removeEventListener('hashchange', checkRoute);
+      window.removeEventListener('popstate', checkRoute);
+    };
+  }, []);
 
   // Check URL params for referral code or initial view
   useEffect(() => {
@@ -46,6 +63,23 @@ function AppContent() {
         <div className="w-12 h-12 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm font-semibold tracking-wide">Connecting to EarnHub BD V20 Enterprise...</p>
       </div>
+    );
+  }
+
+  // If visiting secret admin route and not logged in as admin
+  if (isSecretAdminRoute && !admin) {
+    return (
+      <AdminLoginPage
+        onLoginSuccess={() => {
+          setIsSecretAdminRoute(false);
+          setIsAdminMode(true);
+          window.location.hash = '';
+        }}
+        onReturnHome={() => {
+          setIsSecretAdminRoute(false);
+          window.location.hash = '';
+        }}
+      />
     );
   }
 

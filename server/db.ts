@@ -349,6 +349,7 @@ function initializeSeedData() {
 
   const salt = bcrypt.genSaltSync(10);
   const adminPass = bcrypt.hashSync('admin123', salt);
+  const demoAdminPass = bcrypt.hashSync('demo1234', salt);
   const userPass = bcrypt.hashSync('user123', salt);
   const withdrawPass = bcrypt.hashSync('9988', salt);
 
@@ -369,6 +370,15 @@ function initializeSeedData() {
     role: 'Finance Admin',
     passwordHash: adminPass,
     permissions: ['finance', 'deposits', 'withdraws', 'passbook'],
+  };
+
+  const demoAdmin: AdminUser = {
+    id: 'admin_demo_015',
+    phone: '01500000000',
+    name: 'Demo System Admin',
+    role: 'Main Admin',
+    passwordHash: demoAdminPass,
+    permissions: ['all', 'finance', 'users', 'packages', 'marketing', 'settings', 'logs'],
   };
 
   // 2. Demo Paid Member User (Bronze)
@@ -617,7 +627,7 @@ function initializeSeedData() {
     ],
     settings: defaultSettings,
     cloudinarySettings: defaultCloudinary,
-    adminUsers: [mainAdmin, financeAdmin],
+    adminUsers: [mainAdmin, financeAdmin, demoAdmin],
     activityLogs: logs,
     deviceFingerprints: deviceRecords,
   };
