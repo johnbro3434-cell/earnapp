@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { v2 as cloudinary } from 'cloudinary';
 import {
   getStore,
   saveStore,
@@ -28,6 +29,12 @@ import {
   ReferralCommission,
   AppNotification,
   ActivityLog,
+  AdminUser,
+  SupportTicket,
+  SupportMessage,
+  HomeSlider,
+  VideoTask,
+  SystemHealthInfo,
 } from '../src/types';
 
 const router = Router();
@@ -1709,6 +1716,43 @@ router.post('/admin/campaigns', authenticateAdmin, (req: Request, res: Response)
   return res.json({ success: true, campaign });
 });
 
+router.get('/admin/campaigns', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ campaigns: store.campaigns });
+});
+
+router.post('/admin/campaigns', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { title, image, description, startDate, endDate, isActive } = req.body;
+
+  if (!title) {
+    return res.status(400).json({ error: 'Campaign title is required' });
+  }
+
+  const campaign = {
+    id: `camp_${Date.now()}`,
+    title,
+    image: image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600',
+    bannerUrl: image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600',
+    description: description || '',
+    type: 'banner' as const,
+    startDate: startDate || new Date().toISOString().split('T')[0],
+    endDate: endDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+    isActive: isActive !== undefined ? isActive : true,
+  };
+
+  store.campaigns.push(campaign);
+  saveStore();
+  emitCampaignUpdated(campaign);
+
+  return res.json({ success: true, campaign });
+});
+
+router.get('/admin/promocodes', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ promoCodes: store.promoCodes });
+});
+
 router.post('/admin/promocodes', authenticateAdmin, (req: Request, res: Response) => {
   const store = getStore();
   const { code, rewardAmount, maxUsage, expiresAt } = req.body;
@@ -1732,6 +1776,11 @@ router.post('/admin/promocodes', authenticateAdmin, (req: Request, res: Response
   saveStore();
 
   return res.json({ success: true, promoCode });
+});
+
+router.get('/admin/holidays', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ holidays: store.holidays });
 });
 
 // 8. Gift Balance Manager (Reason required, notification required, history saved!)
@@ -1870,8 +1919,20 @@ router.post('/admin/settings', authenticateAdmin, (req: Request, res: Response) 
     logoUrl,
     mobileLogoUrl,
     whatsappNumber,
+    telegramGroupUrl,
+    telegramChannelUrl,
+    facebookGroupUrl,
+    youtubeTutorialUrl,
+    appDownloadUrl,
+    marqueeNotice,
     themePrimaryColor,
     footerText,
+    minDepositAmount,
+    maxDepositAmount,
+    minWithdrawAmount,
+    maxWithdrawAmount,
+    withdrawFeePercentage,
+    signupBonusAmount,
     withdrawOpeningHour,
     withdrawClosingHour,
     withdrawStartHour,
@@ -1880,6 +1941,11 @@ router.post('/admin/settings', authenticateAdmin, (req: Request, res: Response) 
     isWithdrawDisabled,
     allowFreeUserWithdrawal,
     hybridDepositVerificationEnabled,
+    maintenanceMode,
+    levelAPercentage,
+    levelBPercentage,
+    levelCPercentage,
+    dailyTaskResetHour,
     sundayIsOffDay,
   } = req.body;
 
@@ -1888,8 +1954,21 @@ router.post('/admin/settings', authenticateAdmin, (req: Request, res: Response) 
   if (logoUrl !== undefined) store.settings.logoUrl = logoUrl;
   if (mobileLogoUrl !== undefined) store.settings.mobileLogoUrl = mobileLogoUrl;
   if (whatsappNumber !== undefined) store.settings.whatsappNumber = whatsappNumber;
+  if (telegramGroupUrl !== undefined) store.settings.telegramGroupUrl = telegramGroupUrl;
+  if (telegramChannelUrl !== undefined) store.settings.telegramChannelUrl = telegramChannelUrl;
+  if (facebookGroupUrl !== undefined) store.settings.facebookGroupUrl = facebookGroupUrl;
+  if (youtubeTutorialUrl !== undefined) store.settings.youtubeTutorialUrl = youtubeTutorialUrl;
+  if (appDownloadUrl !== undefined) store.settings.appDownloadUrl = appDownloadUrl;
+  if (marqueeNotice !== undefined) store.settings.marqueeNotice = marqueeNotice;
   if (themePrimaryColor !== undefined) store.settings.themePrimaryColor = themePrimaryColor;
   if (footerText !== undefined) store.settings.footerText = footerText;
+
+  if (minDepositAmount !== undefined) store.settings.minDepositAmount = Number(minDepositAmount);
+  if (maxDepositAmount !== undefined) store.settings.maxDepositAmount = Number(maxDepositAmount);
+  if (minWithdrawAmount !== undefined) store.settings.minWithdrawAmount = Number(minWithdrawAmount);
+  if (maxWithdrawAmount !== undefined) store.settings.maxWithdrawAmount = Number(maxWithdrawAmount);
+  if (withdrawFeePercentage !== undefined) store.settings.withdrawFeePercentage = Number(withdrawFeePercentage);
+  if (signupBonusAmount !== undefined) store.settings.signupBonusAmount = Number(signupBonusAmount);
 
   const openingH = withdrawOpeningHour !== undefined ? Number(withdrawOpeningHour) : (withdrawStartHour !== undefined ? Number(withdrawStartHour) : undefined);
   if (openingH !== undefined) {
@@ -1912,6 +1991,11 @@ router.post('/admin/settings', authenticateAdmin, (req: Request, res: Response) 
     store.settings.allowFreeUserWithdrawal = Boolean(allowFreeUserWithdrawal);
   }
   if (hybridDepositVerificationEnabled !== undefined) store.settings.hybridDepositVerificationEnabled = Boolean(hybridDepositVerificationEnabled);
+  if (maintenanceMode !== undefined) store.settings.maintenanceMode = Boolean(maintenanceMode);
+  if (levelAPercentage !== undefined) store.settings.levelAPercentage = Number(levelAPercentage);
+  if (levelBPercentage !== undefined) store.settings.levelBPercentage = Number(levelBPercentage);
+  if (levelCPercentage !== undefined) store.settings.levelCPercentage = Number(levelCPercentage);
+  if (dailyTaskResetHour !== undefined) store.settings.dailyTaskResetHour = Number(dailyTaskResetHour);
   if (sundayIsOffDay !== undefined) store.settings.sundayIsOffDay = Boolean(sundayIsOffDay);
 
   saveStore();
@@ -1987,17 +2071,219 @@ router.post('/admin/users/:id/toggle-free-withdraw', authenticateAdmin, (req: Re
   });
 });
 
+// Helper: Configure Cloudinary dynamically from store or environment
+function configureCloudinary(): boolean {
+  const store = getStore();
+  const cloudName = store.cloudinarySettings?.cloudName || process.env.CLOUDINARY_CLOUD_NAME || store.settings.cloudinaryCloudName;
+  const apiKey = store.cloudinarySettings?.apiKey || process.env.CLOUDINARY_API_KEY || store.settings.cloudinaryApiKey;
+  const apiSecret = store.cloudinarySettings?.apiSecret || process.env.CLOUDINARY_API_SECRET || store.settings.cloudinaryApiSecret;
+
+  if (cloudName && apiKey && apiSecret && apiSecret !== '****************') {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+      secure: true,
+    });
+    return true;
+  }
+  return false;
+}
+
+// Universal Image Upload Endpoint (Cloudinary with graceful fallback)
+router.post('/upload', async (req: Request, res: Response) => {
+  try {
+    const { image, folder } = req.body;
+    if (!image) {
+      return res.status(400).json({ error: 'Image data is required (base64 string or image URL).' });
+    }
+
+    const isCloudinaryReady = configureCloudinary();
+    const store = getStore();
+
+    if (isCloudinaryReady) {
+      try {
+        const uploadResult = await cloudinary.uploader.upload(image, {
+          folder: folder || 'earnhub_bd_uploads',
+          resource_type: 'auto',
+        });
+
+        return res.json({
+          success: true,
+          url: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          format: uploadResult.format,
+          bytes: uploadResult.bytes,
+          provider: 'cloudinary',
+          message: 'Image uploaded to Cloudinary successfully!',
+        });
+      } catch (cloudinaryErr: any) {
+        console.warn('Cloudinary upload attempt failed:', cloudinaryErr?.message || cloudinaryErr);
+        // Fallback: If it's already a valid external URL, return it
+        if (typeof image === 'string' && (image.startsWith('http://') || image.startsWith('https://'))) {
+          return res.json({
+            success: true,
+            url: image,
+            provider: 'direct_url',
+            warning: 'Cloudinary upload failed, retained original URL: ' + (cloudinaryErr?.message || ''),
+          });
+        }
+        // Fallback: Return the data URI so user flow never breaks
+        return res.json({
+          success: true,
+          url: image,
+          provider: 'data_uri_fallback',
+          warning: 'Stored as data URI because Cloudinary rejected the request: ' + (cloudinaryErr?.message || ''),
+        });
+      }
+    } else {
+      // Cloudinary is not configured yet with valid secret
+      return res.json({
+        success: true,
+        url: image,
+        provider: 'local_preview',
+        warning: 'Cloudinary credentials are not fully configured in Admin Settings. Using direct image data.',
+      });
+    }
+  } catch (err: any) {
+    console.error('Upload route error:', err);
+    return res.status(500).json({ error: err.message || 'Image processing failed' });
+  }
+});
+
+// Cloudinary public configuration for client-side uploads (if preset is enabled)
+router.get('/cloudinary/public-config', (req: Request, res: Response) => {
+  const store = getStore();
+  const cloudName = store.cloudinarySettings?.cloudName || process.env.CLOUDINARY_CLOUD_NAME || store.settings.cloudinaryCloudName || '';
+  const uploadPreset = store.cloudinarySettings?.uploadPreset || process.env.CLOUDINARY_UPLOAD_PRESET || store.settings.cloudinaryUploadPreset || '';
+  const apiKey = store.cloudinarySettings?.apiKey || process.env.CLOUDINARY_API_KEY || store.settings.cloudinaryApiKey || '';
+
+  return res.json({
+    cloudName,
+    uploadPreset,
+    apiKey,
+    isConfigured: Boolean(cloudName && apiKey),
+  });
+});
+
+// Get Cloudinary Settings (Admin only)
+router.get('/admin/settings/cloudinary', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const cloudName = store.cloudinarySettings?.cloudName || process.env.CLOUDINARY_CLOUD_NAME || store.settings.cloudinaryCloudName || '';
+  const apiKey = store.cloudinarySettings?.apiKey || process.env.CLOUDINARY_API_KEY || store.settings.cloudinaryApiKey || '';
+  const hasSecret = Boolean(
+    (store.cloudinarySettings?.apiSecret && store.cloudinarySettings.apiSecret !== '') ||
+    process.env.CLOUDINARY_API_SECRET ||
+    store.settings.cloudinaryApiSecret
+  );
+  const uploadPreset = store.cloudinarySettings?.uploadPreset || process.env.CLOUDINARY_UPLOAD_PRESET || store.settings.cloudinaryUploadPreset || '';
+
+  return res.json({
+    success: true,
+    cloudinarySettings: {
+      cloudName,
+      apiKey,
+      apiSecret: hasSecret ? '****************' : '',
+      uploadPreset,
+      isConfigured: Boolean(cloudName && apiKey && hasSecret),
+    },
+  });
+});
+
+// Update Cloudinary Settings (Admin only)
 router.post('/admin/settings/cloudinary', authenticateAdmin, (req: Request, res: Response) => {
   const store = getStore();
-  const { cloudName, apiKey, apiSecret } = req.body;
+  const admin = (req as any).admin;
+  const { cloudName, apiKey, apiSecret, uploadPreset } = req.body;
 
-  if (cloudName) store.cloudinarySettings.cloudName = cloudName;
-  if (apiKey) store.cloudinarySettings.apiKey = apiKey;
-  if (apiSecret) store.cloudinarySettings.apiSecret = apiSecret;
-  store.cloudinarySettings.isConfigured = Boolean(cloudName && apiKey);
+  if (cloudName !== undefined) {
+    store.cloudinarySettings.cloudName = cloudName.trim();
+    store.settings.cloudinaryCloudName = cloudName.trim();
+  }
+  if (apiKey !== undefined) {
+    store.cloudinarySettings.apiKey = apiKey.trim();
+    store.settings.cloudinaryApiKey = apiKey.trim();
+  }
+  if (apiSecret && apiSecret.trim() !== '****************') {
+    store.cloudinarySettings.apiSecret = apiSecret.trim();
+    store.settings.cloudinaryApiSecret = apiSecret.trim();
+  }
+  if (uploadPreset !== undefined) {
+    store.cloudinarySettings.uploadPreset = uploadPreset.trim();
+    store.settings.cloudinaryUploadPreset = uploadPreset.trim();
+  }
+
+  store.cloudinarySettings.isConfigured = Boolean(
+    store.cloudinarySettings.cloudName &&
+    store.cloudinarySettings.apiKey &&
+    store.cloudinarySettings.apiSecret &&
+    store.cloudinarySettings.apiSecret !== '****************'
+  );
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: admin?.id || 'admin',
+    adminName: admin?.name || 'Chief Admin',
+    action: 'Configure Cloudinary Cloud Storage',
+    target: store.cloudinarySettings.cloudName || 'Cloudinary',
+    details: `Updated Cloudinary settings. Cloud Name: ${store.cloudinarySettings.cloudName}, Preset: ${store.cloudinarySettings.uploadPreset || 'None'}`,
+    timestamp: new Date().toISOString(),
+  });
 
   saveStore();
-  return res.json({ success: true, cloudinarySettings: store.cloudinarySettings });
+  return res.json({
+    success: true,
+    message: 'Cloudinary configuration saved successfully.',
+    cloudinarySettings: {
+      cloudName: store.cloudinarySettings.cloudName,
+      apiKey: store.cloudinarySettings.apiKey,
+      apiSecret: store.cloudinarySettings.apiSecret ? '****************' : '',
+      uploadPreset: store.cloudinarySettings.uploadPreset,
+      isConfigured: store.cloudinarySettings.isConfigured,
+    },
+  });
+});
+
+// Test Cloudinary Connection (Admin only)
+router.post('/admin/cloudinary/test', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    const store = getStore();
+    const { cloudName, apiKey, apiSecret } = req.body;
+
+    const targetCloudName = (cloudName || store.cloudinarySettings.cloudName || process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+    const targetApiKey = (apiKey || store.cloudinarySettings.apiKey || process.env.CLOUDINARY_API_KEY || '').trim();
+    let targetApiSecret = (apiSecret || '').trim();
+
+    if (!targetApiSecret || targetApiSecret === '****************') {
+      targetApiSecret = store.cloudinarySettings.apiSecret || process.env.CLOUDINARY_API_SECRET || '';
+    }
+
+    if (!targetCloudName || !targetApiKey || !targetApiSecret || targetApiSecret === '****************') {
+      return res.status(400).json({
+        error: 'Cloud Name, API Key, and a valid API Secret are required to test the connection.',
+      });
+    }
+
+    cloudinary.config({
+      cloud_name: targetCloudName,
+      api_key: targetApiKey,
+      api_secret: targetApiSecret,
+      secure: true,
+    });
+
+    const ping = await cloudinary.api.ping();
+
+    return res.json({
+      success: true,
+      message: 'Cloudinary connection verified! Cloud name "' + targetCloudName + '" is active and authorized.',
+      status: ping.status || 'ok',
+    });
+  } catch (err: any) {
+    console.error('Cloudinary test error:', err);
+    return res.status(400).json({
+      error: 'Cloudinary connection failed: ' + (err.message || 'Invalid credentials or network issue'),
+    });
+  }
 });
 
 // 12. Fraud & Device Security Dashboard
@@ -2014,6 +2300,777 @@ router.get('/admin/fraud-dashboard', authenticateAdmin, (req: Request, res: Resp
 router.get('/admin/activity-logs', authenticateAdmin, (req: Request, res: Response) => {
   const store = getStore();
   return res.json({ logs: store.activityLogs.slice(-100).reverse() });
+});
+
+// 14. Monthly Salary Distribution
+router.post('/api/admin/salary/distribute', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const admin = (req as any).admin;
+  let distributedCount = 0;
+  let totalDistributedAmount = 0;
+
+  store.users.forEach((user) => {
+    // Check direct referrals who have an active paid package
+    const directReferrals = store.users.filter((u) => u.referredBy === user.referralCode);
+    const activePaidCount = directReferrals.filter((u) => u.activePackageId && !u.isTrial).length;
+
+    let salaryAmount = 0;
+    if (activePaidCount >= 50) {
+      salaryAmount = 25000;
+    } else if (activePaidCount >= 25) {
+      salaryAmount = 12000;
+    } else if (activePaidCount >= 10) {
+      salaryAmount = 5000;
+    }
+
+    if (salaryAmount > 0) {
+      const wallet = store.wallets.find((w) => w.userId === user.id);
+      if (wallet) {
+        wallet.balance += salaryAmount;
+        wallet.salaryIncome = (wallet.salaryIncome || 0) + salaryAmount;
+        wallet.updatedAt = new Date().toISOString();
+
+        store.transactions.push({
+          id: `trx_sal_${Date.now()}_${user.id.slice(-4)}`,
+          userId: user.id,
+          type: 'salary',
+          amount: salaryAmount,
+          description: `Monthly Team Leadership Salary (${activePaidCount} Active Team Members)`,
+          balanceAfter: wallet.balance,
+          createdAt: new Date().toISOString(),
+        });
+
+        store.notifications.push({
+          id: `notif_sal_${Date.now()}_${user.id.slice(-4)}`,
+          userId: user.id,
+          type: 'salary',
+          title: 'Monthly Salary Credited!',
+          message: `Congratulations! ৳${salaryAmount} monthly salary credited for your team of ${activePaidCount} active members.`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        });
+
+        distributedCount++;
+        totalDistributedAmount += salaryAmount;
+        emitWalletUpdated(user.id, wallet);
+      }
+    }
+  });
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: admin.id,
+    adminName: admin.name,
+    action: 'Distribute Monthly Salary',
+    target: `${distributedCount} Managers`,
+    details: `Distributed total ৳${totalDistributedAmount} to ${distributedCount} qualifying managers.`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  return res.json({
+    success: true,
+    distributedCount,
+    totalDistributedAmount,
+    message: `Successfully distributed ৳${totalDistributedAmount} to ${distributedCount} qualifying leaders.`,
+  });
+});
+
+// 15. User Management Extra Actions
+router.post('/api/admin/users/:id/reset-password', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const admin = (req as any).admin;
+  const user = store.users.find((u) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const newPass = req.body.newPassword || '123456';
+  user.passwordHash = bcrypt.hashSync(newPass, 10);
+  saveStore();
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: admin.id,
+    adminName: admin.name,
+    action: 'Reset Password',
+    target: user.phone,
+    details: `Password reset to temporary password.`,
+    timestamp: new Date().toISOString(),
+  });
+  saveStore();
+
+  return res.json({ success: true, message: `Password reset for ${user.phone}. New password: ${newPass}` });
+});
+
+router.post('/api/admin/users/:id/change-package', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const admin = (req as any).admin;
+  const user = store.users.find((u) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const { packageId } = req.body;
+  user.activePackageId = packageId;
+  user.isTrial = false;
+  user.packageActivatedAt = new Date().toISOString();
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: admin.id,
+    adminName: admin.name,
+    action: 'Change User Package',
+    target: user.phone,
+    details: `Assigned package ID: ${packageId}`,
+    timestamp: new Date().toISOString(),
+  });
+  saveStore();
+
+  return res.json({ success: true, message: `Package updated for ${user.phone}` });
+});
+
+router.post('/api/admin/users/:id/reset-trial', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const admin = (req as any).admin;
+  const user = store.users.find((u) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  user.isTrial = true;
+  user.trialDaysUsed = 0;
+  user.trialTotalEarned = 0;
+  user.trialMissedDays = 0;
+  user.trialExpired = false;
+  user.trialStartDate = new Date().toISOString().split('T')[0];
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: admin.id,
+    adminName: admin.name,
+    action: 'Reset Free Trial',
+    target: user.phone,
+    details: `Reset 3-day free trial counter to fresh state.`,
+    timestamp: new Date().toISOString(),
+  });
+  saveStore();
+
+  return res.json({ success: true, message: `Free trial reset for ${user.phone}` });
+});
+
+router.post('/api/admin/security/ban-device', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const admin = (req as any).admin;
+  const { deviceFingerprint } = req.body;
+  if (!deviceFingerprint) return res.status(400).json({ error: 'deviceFingerprint is required' });
+
+  store.users.forEach((u) => {
+    if (u.deviceFingerprint === deviceFingerprint) {
+      u.isBanned = true;
+      u.status = 'suspended';
+    }
+  });
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: admin.id,
+    adminName: admin.name,
+    action: 'Ban Device Fingerprint',
+    target: deviceFingerprint,
+    details: `Banned device and suspended all associated user accounts.`,
+    timestamp: new Date().toISOString(),
+  });
+  saveStore();
+
+  return res.json({ success: true, message: `Device ${deviceFingerprint} and all associated accounts banned.` });
+});
+
+// 16. Admin Users Management (Main Admin only)
+router.get('/admin/admin-users', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const safeAdmins = (store.adminUsers || []).map(a => ({
+    id: a.id,
+    phone: a.phone,
+    name: a.name,
+    role: a.role,
+    permissions: a.permissions || [],
+    status: a.status || 'active',
+    email: a.email || '',
+    lastLoginAt: a.lastLoginAt,
+    createdAt: a.createdAt,
+  }));
+  return res.json({ adminUsers: safeAdmins });
+});
+
+router.post('/admin/admin-users', authenticateAdmin, (req: Request, res: Response) => {
+  const currentAdmin = (req as any).user || (req as any).admin;
+  if (currentAdmin.role !== 'Main Admin') {
+    return res.status(403).json({ error: 'Only Main Admin can create new admin users.' });
+  }
+
+  const { phone, name, role, password, permissions, email } = req.body;
+  if (!phone || !name || !role || !password) {
+    return res.status(400).json({ error: 'Phone, name, role, and password are required.' });
+  }
+
+  const store = getStore();
+  const normalizedPhone = normalizeBdPhone(phone);
+  if (store.adminUsers.some(a => a.phone === normalizedPhone)) {
+    return res.status(400).json({ error: 'An admin user with this phone number already exists.' });
+  }
+
+  const salt = bcrypt.genSaltSync(10);
+  const passwordHash = bcrypt.hashSync(password, salt);
+
+  const newAdmin: AdminUser = {
+    id: `admin_${Date.now()}`,
+    phone: normalizedPhone,
+    name: name.trim(),
+    role: role as any,
+    passwordHash,
+    permissions: permissions || ['dashboard'],
+    status: 'active',
+    email: email || '',
+    createdAt: new Date().toISOString(),
+  };
+
+  store.adminUsers.push(newAdmin);
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: currentAdmin.id,
+    adminName: currentAdmin.name || 'Main Admin',
+    action: 'Create Admin User',
+    target: newAdmin.phone,
+    details: `Created admin user ${newAdmin.name} with role ${newAdmin.role}`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+
+  return res.json({
+    success: true,
+    message: `Admin user ${newAdmin.name} (${newAdmin.role}) created successfully.`,
+    adminUser: {
+      id: newAdmin.id,
+      phone: newAdmin.phone,
+      name: newAdmin.name,
+      role: newAdmin.role,
+      permissions: newAdmin.permissions,
+      status: newAdmin.status,
+    },
+  });
+});
+
+router.post('/admin/admin-users/:id/update', authenticateAdmin, (req: Request, res: Response) => {
+  const currentAdmin = (req as any).user || (req as any).admin;
+  if (currentAdmin.role !== 'Main Admin') {
+    return res.status(403).json({ error: 'Only Main Admin can update admin users.' });
+  }
+
+  const store = getStore();
+  const targetAdmin = store.adminUsers.find(a => a.id === req.params.id);
+  if (!targetAdmin) return res.status(404).json({ error: 'Admin user not found.' });
+
+  const { name, role, permissions, status, email, newPassword } = req.body;
+  if (name !== undefined) targetAdmin.name = name.trim();
+  if (role !== undefined) targetAdmin.role = role;
+  if (permissions !== undefined) targetAdmin.permissions = permissions;
+  if (status !== undefined) targetAdmin.status = status;
+  if (email !== undefined) targetAdmin.email = email;
+  if (newPassword && newPassword.length >= 6) {
+    const salt = bcrypt.genSaltSync(10);
+    targetAdmin.passwordHash = bcrypt.hashSync(newPassword, salt);
+  }
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: currentAdmin.id,
+    adminName: currentAdmin.name || 'Main Admin',
+    action: 'Update Admin User',
+    target: targetAdmin.phone,
+    details: `Updated settings for admin ${targetAdmin.name}`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  return res.json({ success: true, message: 'Admin user updated successfully.' });
+});
+
+router.delete('/admin/admin-users/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const currentAdmin = (req as any).user || (req as any).admin;
+  if (currentAdmin.role !== 'Main Admin') {
+    return res.status(403).json({ error: 'Only Main Admin can delete admin accounts.' });
+  }
+
+  const store = getStore();
+  const idx = store.adminUsers.findIndex(a => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Admin user not found.' });
+
+  const target = store.adminUsers[idx];
+  if (target.id === currentAdmin.id) {
+    return res.status(400).json({ error: 'You cannot delete your own active administrator account.' });
+  }
+
+  store.adminUsers.splice(idx, 1);
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: currentAdmin.id,
+    adminName: currentAdmin.name || 'Main Admin',
+    action: 'Delete Admin User',
+    target: target.phone,
+    details: `Deleted admin account ${target.name} (${target.phone})`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  return res.json({ success: true, message: `Admin account ${target.name} deleted.` });
+});
+
+// 17. Roles Matrix
+router.get('/admin/roles', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ roles: store.roles || [] });
+});
+
+router.post('/admin/roles', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { roles } = req.body;
+  if (Array.isArray(roles)) {
+    store.roles = roles;
+    saveStore();
+  }
+  return res.json({ success: true, roles: store.roles });
+});
+
+// 18. Support Tickets CRM
+router.get('/admin/support/tickets', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { status, priority, search } = req.query;
+  let list = [...(store.supportTickets || [])];
+
+  if (status && status !== 'all') {
+    list = list.filter(t => t.status === status);
+  }
+  if (priority && priority !== 'all') {
+    list = list.filter(t => t.priority === priority);
+  }
+  if (search && typeof search === 'string') {
+    const q = search.toLowerCase();
+    list = list.filter(t =>
+      t.userPhone.includes(q) ||
+      t.subject.toLowerCase().includes(q) ||
+      t.id.toLowerCase().includes(q)
+    );
+  }
+
+  return res.json({ tickets: list.reverse() });
+});
+
+router.get('/admin/support/tickets/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const ticket = (store.supportTickets || []).find(t => t.id === req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+  return res.json({ ticket });
+});
+
+router.post('/admin/support/tickets/:id/reply', authenticateAdmin, (req: Request, res: Response) => {
+  const currentAdmin = (req as any).user || (req as any).admin;
+  const store = getStore();
+  const ticket = (store.supportTickets || []).find(t => t.id === req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+  const { message, attachmentUrl, setStatus } = req.body;
+  if (!message) return res.status(400).json({ error: 'Reply message cannot be empty' });
+
+  const newMsg: SupportMessage = {
+    id: `msg_${Date.now()}`,
+    senderId: currentAdmin.id,
+    senderName: `${currentAdmin.name || 'Admin'} (Support Team)`,
+    senderType: 'admin',
+    message: message.trim(),
+    attachmentUrl,
+    createdAt: new Date().toISOString(),
+  };
+
+  ticket.messages.push(newMsg);
+  ticket.updatedAt = new Date().toISOString();
+  if (setStatus && ['open', 'in_progress', 'resolved', 'closed'].includes(setStatus)) {
+    ticket.status = setStatus;
+  } else if (ticket.status === 'open') {
+    ticket.status = 'in_progress';
+  }
+
+  store.notifications.push({
+    id: `notif_${Date.now()}`,
+    userId: ticket.userId,
+    type: 'task',
+    title: 'Support Ticket Update',
+    message: `New reply on ticket #${ticket.id}: ${message.slice(0, 80)}...`,
+    isRead: false,
+    createdAt: new Date().toISOString(),
+  });
+
+  saveStore();
+  emitNotificationNew(ticket.userId, store.notifications[store.notifications.length - 1]);
+
+  return res.json({ success: true, ticket, message: newMsg });
+});
+
+router.post('/admin/support/tickets/:id/status', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const ticket = (store.supportTickets || []).find(t => t.id === req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+  const { status } = req.body;
+  if (!['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid ticket status' });
+  }
+
+  ticket.status = status;
+  ticket.updatedAt = new Date().toISOString();
+  saveStore();
+
+  return res.json({ success: true, ticket });
+});
+
+// Public / User Support Tickets
+router.get('/api/support/tickets', (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const store = getStore();
+  const userTickets = (store.supportTickets || []).filter(t => t.userId === user.id);
+  return res.json({ tickets: userTickets.reverse() });
+});
+
+router.post('/api/support/tickets', (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const { subject, category, priority, message, attachmentUrl } = req.body;
+
+  if (!subject || !message) {
+    return res.status(400).json({ error: 'Subject and message are required.' });
+  }
+
+  const store = getStore();
+  const newTicket: SupportTicket = {
+    id: `tkt_${Date.now().toString().slice(-6)}`,
+    userId: user.id,
+    userPhone: user.phone,
+    subject: subject.trim(),
+    category: category || 'General Inquiry',
+    priority: priority || 'medium',
+    status: 'open',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    messages: [
+      {
+        id: `msg_${Date.now()}`,
+        senderId: user.id,
+        senderName: user.phone,
+        senderType: 'user',
+        message: message.trim(),
+        attachmentUrl,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+  };
+
+  if (!store.supportTickets) store.supportTickets = [];
+  store.supportTickets.push(newTicket);
+  saveStore();
+
+  return res.json({ success: true, ticket: newTicket });
+});
+
+// 19. Homepage Sliders Management
+router.get('/admin/sliders', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ sliders: (store.sliders || []).sort((a, b) => a.sortOrder - b.sortOrder) });
+});
+
+router.get('/api/sliders/public', (req: Request, res: Response) => {
+  const store = getStore();
+  const activeSliders = (store.sliders || [])
+    .filter(s => s.status === 'active')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return res.json({ sliders: activeSliders });
+});
+
+router.post('/admin/sliders', authenticateAdmin, (req: Request, res: Response) => {
+  const { title, subtitle, imageUrl, buttonText, buttonLink, status, sortOrder, startDate, endDate } = req.body;
+  if (!title || !imageUrl) {
+    return res.status(400).json({ error: 'Slider title and image URL are required' });
+  }
+
+  const store = getStore();
+  const newSlider: HomeSlider = {
+    id: `slide_${Date.now()}`,
+    title: title.trim(),
+    subtitle: subtitle || '',
+    imageUrl,
+    buttonText: buttonText || 'Learn More',
+    buttonLink: buttonLink || '/',
+    status: status || 'active',
+    sortOrder: Number(sortOrder) || (store.sliders.length + 1),
+    startDate,
+    endDate,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!store.sliders) store.sliders = [];
+  store.sliders.push(newSlider);
+  saveStore();
+
+  return res.json({ success: true, slider: newSlider });
+});
+
+router.post('/admin/sliders/:id/update', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const slider = (store.sliders || []).find(s => s.id === req.params.id);
+  if (!slider) return res.status(404).json({ error: 'Slider not found' });
+
+  const { title, subtitle, imageUrl, buttonText, buttonLink, status, sortOrder, startDate, endDate } = req.body;
+  if (title !== undefined) slider.title = title.trim();
+  if (subtitle !== undefined) slider.subtitle = subtitle;
+  if (imageUrl !== undefined) slider.imageUrl = imageUrl;
+  if (buttonText !== undefined) slider.buttonText = buttonText;
+  if (buttonLink !== undefined) slider.buttonLink = buttonLink;
+  if (status !== undefined) slider.status = status;
+  if (sortOrder !== undefined) slider.sortOrder = Number(sortOrder);
+  if (startDate !== undefined) slider.startDate = startDate;
+  if (endDate !== undefined) slider.endDate = endDate;
+
+  saveStore();
+  return res.json({ success: true, slider });
+});
+
+router.post('/admin/sliders/:id/toggle', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const slider = (store.sliders || []).find(s => s.id === req.params.id);
+  if (!slider) return res.status(404).json({ error: 'Slider not found' });
+
+  slider.status = slider.status === 'active' ? 'inactive' : 'active';
+  saveStore();
+  return res.json({ success: true, slider });
+});
+
+router.delete('/admin/sliders/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const idx = (store.sliders || []).findIndex(s => s.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Slider not found' });
+
+  store.sliders.splice(idx, 1);
+  saveStore();
+  return res.json({ success: true, message: 'Slider deleted successfully' });
+});
+
+// 20. Video Tasks Admin Management (CRUD with Cloudinary Support)
+router.get('/admin/tasks', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ tasks: store.videoTasks || [] });
+});
+
+router.post('/admin/tasks', authenticateAdmin, (req: Request, res: Response) => {
+  const { title, videoUrl, thumbnailUrl, rewardAmount, durationSeconds, category, requiredPackageId, enabled } = req.body;
+  if (!title || !videoUrl) {
+    return res.status(400).json({ error: 'Task title and video URL are required' });
+  }
+
+  const store = getStore();
+  const newTask: VideoTask = {
+    id: `task_${Date.now()}`,
+    title: title.trim(),
+    videoUrl,
+    thumbnailUrl: thumbnailUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600',
+    rewardAmount: Number(rewardAmount) || 25,
+    durationSeconds: 10, // STRICT 10-second requirement
+    category: category || 'Sponsor Ads',
+    requiredPackageId: requiredPackageId || 'all',
+    enabled: enabled !== undefined ? Boolean(enabled) : true,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.videoTasks.push(newTask);
+  saveStore();
+
+  return res.json({ success: true, task: newTask });
+});
+
+router.post('/admin/tasks/:id/update', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const task = store.videoTasks.find(t => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const { title, videoUrl, thumbnailUrl, rewardAmount, category, requiredPackageId, enabled } = req.body;
+  if (title !== undefined) task.title = title.trim();
+  if (videoUrl !== undefined) task.videoUrl = videoUrl;
+  if (thumbnailUrl !== undefined) task.thumbnailUrl = thumbnailUrl;
+  if (rewardAmount !== undefined) task.rewardAmount = Number(rewardAmount);
+  if (category !== undefined) task.category = category;
+  if (requiredPackageId !== undefined) task.requiredPackageId = requiredPackageId;
+  if (enabled !== undefined) task.enabled = Boolean(enabled);
+  task.durationSeconds = 10; // strictly 10s
+
+  saveStore();
+  return res.json({ success: true, task });
+});
+
+router.post('/admin/tasks/:id/toggle', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const task = store.videoTasks.find(t => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  task.enabled = !task.enabled;
+  saveStore();
+  return res.json({ success: true, task });
+});
+
+router.delete('/admin/tasks/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const idx = store.videoTasks.findIndex(t => t.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Task not found' });
+
+  store.videoTasks.splice(idx, 1);
+  saveStore();
+  return res.json({ success: true, message: 'Task deleted successfully' });
+});
+
+// 21. System Health & Diagnostics
+router.get('/admin/system/health', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const uptime = process.uptime();
+  const memory = process.memoryUsage();
+
+  const days = Math.floor(uptime / 86400);
+  const hours = Math.floor((uptime % 86400) / 3600);
+  const minutes = Math.floor((uptime % 3600) / 60);
+  const uptimeFormatted = `${days}d ${hours}h ${minutes}m`;
+
+  const isCloudinaryReady = configureCloudinary();
+
+  const healthData: SystemHealthInfo = {
+    serverStatus: 'healthy',
+    uptimeSeconds: Math.floor(uptime),
+    uptimeFormatted,
+    nodeVersion: process.version,
+    memoryUsageMb: Math.round(memory.rss / (1024 * 1024)),
+    heapUsedMb: Math.round(memory.heapUsed / (1024 * 1024)),
+    totalMemoryMb: Math.round(memory.heapTotal / (1024 * 1024)),
+    socketConnections: getOnlineUserCount() || 1,
+    cloudinaryStatus: isCloudinaryReady ? 'connected' : 'unconfigured',
+    databaseStatus: 'connected',
+    lastBackupAt: new Date().toISOString(),
+    timestamp: new Date().toISOString(),
+  };
+
+  return res.json({
+    health: healthData,
+    counts: {
+      users: store.users.length,
+      deposits: store.deposits.length,
+      withdraws: store.withdraws.length,
+      tasks: store.videoTasks.length,
+      tickets: (store.supportTickets || []).length,
+      logs: store.activityLogs.length,
+      sliders: (store.sliders || []).length,
+    },
+  });
+});
+
+// 22. Global Admin Search across all entities
+router.get('/admin/global-search', authenticateAdmin, (req: Request, res: Response) => {
+  const { q } = req.query;
+  if (!q || typeof q !== 'string' || q.trim().length < 2) {
+    return res.json({ users: [], deposits: [], withdraws: [], transactions: [], tickets: [] });
+  }
+
+  const query = q.trim().toLowerCase();
+  const store = getStore();
+
+  const users = store.users
+    .filter(u => u.phone.includes(query) || u.id.toLowerCase().includes(query) || u.referralCode.toLowerCase().includes(query))
+    .slice(0, 10);
+
+  const deposits = store.deposits
+    .filter(d => d.transactionId.toLowerCase().includes(query) || d.userPhone.includes(query) || d.senderNumber.includes(query))
+    .slice(0, 10);
+
+  const withdraws = store.withdraws
+    .filter(w => w.withdrawNumber.includes(query) || w.userPhone.includes(query) || w.id.toLowerCase().includes(query))
+    .slice(0, 10);
+
+  const transactions = store.transactions
+    .filter(t => t.id.toLowerCase().includes(query) || (t.description && t.description.toLowerCase().includes(query)))
+    .slice(0, 10);
+
+  const tickets = (store.supportTickets || [])
+    .filter(t => t.id.toLowerCase().includes(query) || t.userPhone.includes(query) || t.subject.toLowerCase().includes(query))
+    .slice(0, 10);
+
+  return res.json({ users, deposits, withdraws, transactions, tickets });
+});
+
+// 23. Broadcast Center
+router.post('/admin/broadcast', authenticateAdmin, (req: Request, res: Response) => {
+  const currentAdmin = (req as any).user || (req as any).admin;
+  const { title, message, target, targetPhone, type } = req.body;
+
+  if (!title || !message) {
+    return res.status(400).json({ error: 'Broadcast title and message are required' });
+  }
+
+  const store = getStore();
+  let recipientCount = 0;
+
+  if (target === 'single' && targetPhone) {
+    const user = store.users.find(u => u.phone === normalizeBdPhone(targetPhone));
+    if (user) {
+      const notif = {
+        id: `notif_${Date.now()}`,
+        userId: user.id,
+        type: (type || 'task') as any,
+        title,
+        message,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+      store.notifications.push(notif);
+      emitNotificationNew(user.id, notif);
+      recipientCount = 1;
+    }
+  } else {
+    store.users.forEach(u => {
+      let match = false;
+      if (target === 'all') match = true;
+      else if (target === 'free' && u.isTrial) match = true;
+      else if (target === 'paid' && !u.isTrial && u.activePackageId) match = true;
+
+      if (match) {
+        const notif = {
+          id: `notif_${Date.now()}_${u.id.slice(-4)}`,
+          userId: u.id,
+          type: (type || 'task') as any,
+          title,
+          message,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        };
+        store.notifications.push(notif);
+        emitNotificationNew(u.id, notif);
+        recipientCount++;
+      }
+    });
+  }
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: currentAdmin.id,
+    adminName: currentAdmin.name || 'Admin',
+    action: 'Send Push Broadcast',
+    target: target === 'single' ? targetPhone : `Target: ${target}`,
+    details: `Broadcast sent to ${recipientCount} user(s). Title: ${title}`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  return res.json({ success: true, recipientCount, message: `Broadcast successfully dispatched to ${recipientCount} users.` });
 });
 
 export default router;

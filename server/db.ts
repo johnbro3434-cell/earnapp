@@ -21,6 +21,9 @@ import {
   AdminUser,
   ActivityLog,
   DeviceFingerprintRecord,
+  SupportTicket,
+  HomeSlider,
+  RoleDefinition,
 } from '../src/types';
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'store.json');
@@ -45,6 +48,9 @@ export interface StoreData {
   adminUsers: AdminUser[];
   activityLogs: ActivityLog[];
   deviceFingerprints: DeviceFingerprintRecord[];
+  supportTickets: SupportTicket[];
+  sliders: HomeSlider[];
+  roles: RoleDefinition[];
 }
 
 const defaultPackages: Package[] = [
@@ -248,13 +254,29 @@ const defaultSettings: WebsiteSettings = {
   logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80',
   mobileLogoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
   whatsappNumber: '+8801700112233',
+  telegramGroupUrl: 'https://t.me/earnhub_bd_group',
+  telegramChannelUrl: 'https://t.me/earnhub_bd_official',
+  facebookGroupUrl: 'https://facebook.com/groups/earnhubbd',
+  youtubeTutorialUrl: 'https://youtube.com/watch?v=earnhubbd_guide',
+  appDownloadUrl: 'https://earnhub-bd.com/download/app.apk',
+  marqueeNotice: '🔥 EarnHub BD V20 Enterprise - প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ইনকাম করুন! নতুন মেম্বারদের জন্য ফ্রি ট্রায়াল চালু রয়েছে। যেকোনো সহায়তায় আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।',
   themePrimaryColor: '#059669', // Emerald Green BD
   footerText: '© 2026 EarnHub BD V20 Enterprise Ltd. Registered in Dhaka, Bangladesh. All Rights Reserved.',
+  minDepositAmount: 500,
+  maxDepositAmount: 100000,
+  minWithdrawAmount: 300,
+  maxWithdrawAmount: 50000,
+  withdrawFeePercentage: 10,
+  signupBonusAmount: 50,
   withdrawOpeningHour: 8, // 8:00 AM
   withdrawClosingHour: 23, // 11:00 PM
+  withdrawStartHour: 8,
+  withdrawEndHour: 23,
   withdrawGloballyEnabled: true,
+  isWithdrawDisabled: false,
   allowFreeUserWithdrawal: false, // Default is false: free users cannot withdraw without permission
   hybridDepositVerificationEnabled: false, // Default is OFF as mandated!
+  maintenanceMode: false,
   levelAPercentage: 10,
   levelBPercentage: 5,
   levelCPercentage: 2,
@@ -268,6 +290,133 @@ const defaultCloudinary: CloudinarySettings = {
   apiSecret: '****************',
   isConfigured: true,
 };
+
+const defaultRoles: RoleDefinition[] = [
+  {
+    id: 'role_main_admin',
+    roleName: 'Main Admin',
+    description: 'Full Master Access to All Financial, CRM, Tasks, Security, and System Settings',
+    permissions: ['all', 'dashboard', 'users', 'deposits', 'withdrawals', 'wallet', 'packages', 'tasks', 'referrals', 'salary', 'campaigns', 'promocodes', 'gifts', 'holidays', 'sliders', 'notifications', 'analytics', 'security', 'payment_numbers', 'cloudinary', 'branding', 'settings', 'admin_users', 'roles', 'activity_logs', 'support', 'system_health'],
+    userCount: 2,
+  },
+  {
+    id: 'role_manager_admin',
+    roleName: 'Manager Admin',
+    description: 'User CRM, Team Referrals, Monthly Salary distribution, and Member verification',
+    permissions: ['dashboard', 'users', 'referrals', 'salary', 'activity_logs', 'support'],
+    userCount: 1,
+  },
+  {
+    id: 'role_finance_admin',
+    roleName: 'Finance Admin',
+    description: 'Deposits review, Withdrawals approvals, Wallet adjustments, Payment Numbers pool',
+    permissions: ['dashboard', 'deposits', 'withdrawals', 'wallet', 'payment_numbers', 'analytics', 'activity_logs'],
+    userCount: 1,
+  },
+  {
+    id: 'role_marketing_admin',
+    roleName: 'Marketing Admin',
+    description: 'Campaign banners, Promo codes, Homepage sliders, Broadcast notifications',
+    permissions: ['dashboard', 'campaigns', 'promocodes', 'sliders', 'notifications', 'branding'],
+    userCount: 1,
+  },
+  {
+    id: 'role_support_admin',
+    roleName: 'Support Admin',
+    description: 'User ticket inquiries, Live support messages, Profile lookup, Basic guidance',
+    permissions: ['dashboard', 'users', 'support'],
+    userCount: 1,
+  },
+];
+
+const defaultSliders: HomeSlider[] = [
+  {
+    id: 'slide_1',
+    title: 'Earn Daily Micro-Task Rewards in Bangladesh',
+    subtitle: 'Watch 10-second sponsor videos and get instant bKash & Nagad payments',
+    imageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&auto=format&fit=crop&q=80',
+    buttonText: 'Start Free Trial',
+    buttonLink: '/register',
+    status: 'active',
+    sortOrder: 1,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'slide_2',
+    title: 'Ramadan Mega Bonus & Festival Rewards',
+    subtitle: '15% instant deposit cashback and active leader team salary pool',
+    imageUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&auto=format&fit=crop&q=80',
+    buttonText: 'Upgrade Package',
+    buttonLink: '/packages',
+    status: 'active',
+    sortOrder: 2,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'slide_3',
+    title: 'Automated Real-Time Micro-Earnings',
+    subtitle: 'Guaranteed 10-second timer countdown with transparent ledger transactions',
+    imageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=1200&auto=format&fit=crop&q=80',
+    buttonText: 'View Today Tasks',
+    buttonLink: '/tasks',
+    status: 'active',
+    sortOrder: 3,
+    createdAt: new Date().toISOString(),
+  },
+];
+
+const defaultSupportTickets: SupportTicket[] = [
+  {
+    id: 'tkt_1001',
+    userId: 'user_01711111111',
+    userPhone: '01711111111',
+    subject: 'Deposit confirmation query for bKash',
+    category: 'Deposit',
+    priority: 'high',
+    status: 'resolved',
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 3 * 86400000 + 3600000).toISOString(),
+    messages: [
+      {
+        id: 'msg_1',
+        senderId: 'user_01711111111',
+        senderName: '01711111111',
+        senderType: 'user',
+        message: 'Hello, I sent 7,500 TK via bKash TrxID BK9A82J1KD. How long will it take to verify?',
+        createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+      },
+      {
+        id: 'msg_2',
+        senderId: 'admin_finance_01',
+        senderName: 'Fatema Tuz Zohra (Finance Admin)',
+        senderType: 'admin',
+        message: 'Your deposit has been verified and added to your wallet balance. You can now purchase your Golden Package from the Packages tab.',
+        createdAt: new Date(Date.now() - 3 * 86400000 + 1800000).toISOString(),
+      },
+    ],
+  },
+  {
+    id: 'tkt_1002',
+    userId: 'user_01822222222',
+    userPhone: '01822222222',
+    subject: 'Free trial video task countdown question',
+    category: 'Tasks',
+    priority: 'medium',
+    status: 'open',
+    createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 3600000).toISOString(),
+    messages: [
+      {
+        id: 'msg_3',
+        senderId: 'user_01822222222',
+        senderName: '01822222222',
+        senderType: 'user',
+        message: 'Assalamu Alaikum. How many trial days do I have left for earning 25 TK daily?',
+        createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
+      },
+    ],
+  },
+];
 
 let store: StoreData = {
   users: [],
@@ -325,6 +474,9 @@ let store: StoreData = {
   adminUsers: [],
   activityLogs: [],
   deviceFingerprints: [],
+  supportTickets: defaultSupportTickets,
+  sliders: defaultSliders,
+  roles: defaultRoles,
 };
 
 // Seed initial users with bcrypt hashes
@@ -340,6 +492,15 @@ function initializeSeedData() {
       store = JSON.parse(content);
       if (store.settings && store.settings.allowFreeUserWithdrawal === undefined) {
         store.settings.allowFreeUserWithdrawal = false;
+      }
+      if (!store.supportTickets || !store.supportTickets.length) {
+        store.supportTickets = defaultSupportTickets;
+      }
+      if (!store.sliders || !store.sliders.length) {
+        store.sliders = defaultSliders;
+      }
+      if (!store.roles || !store.roles.length) {
+        store.roles = defaultRoles;
       }
       return;
     } catch (e) {
@@ -630,6 +791,9 @@ function initializeSeedData() {
     adminUsers: [mainAdmin, financeAdmin, demoAdmin],
     activityLogs: logs,
     deviceFingerprints: deviceRecords,
+    supportTickets: defaultSupportTickets,
+    sliders: defaultSliders,
+    roles: defaultRoles,
   };
 
   saveStore();

@@ -103,3 +103,23 @@ export function emitAdminDashboardUpdated(metrics?: any) {
   if (!io) return;
   io.to('admins').emit('admin.dashboard.updated', metrics || {});
 }
+
+export function emitDepositNew(depositData: any) {
+  if (!io) return;
+  io.to('finance-admins').emit('deposit.new', depositData);
+  io.to('admins').emit('deposit.new', depositData);
+  emitAdminDashboardUpdated();
+}
+
+export function emitWithdrawNew(withdrawData: any) {
+  if (!io) return;
+  io.to('finance-admins').emit('withdraw.new', withdrawData);
+  io.to('admins').emit('withdraw.new', withdrawData);
+  emitAdminDashboardUpdated();
+}
+
+export function emitUserRegistered(userData: any) {
+  if (!io) return;
+  io.to('admins').emit('user.registered', userData);
+  emitAdminDashboardUpdated();
+}

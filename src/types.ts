@@ -129,6 +129,9 @@ export interface VideoTask {
   durationSeconds: number; // LOCKED: 10 Seconds
   rewardAmount: number;
   category: string;
+  requiredPackageId?: string;
+  enabled?: boolean;
+  createdAt?: string;
 }
 
 export interface TaskHistory {
@@ -232,27 +235,45 @@ export interface WebsiteSettings {
   logoUrl: string;
   mobileLogoUrl: string;
   whatsappNumber: string;
+  telegramGroupUrl?: string;
+  telegramChannelUrl?: string;
+  facebookGroupUrl?: string;
+  youtubeTutorialUrl?: string;
+  appDownloadUrl?: string;
+  marqueeNotice?: string;
   themePrimaryColor: string;
   footerText: string;
-  withdrawOpeningHour: number; // e.g. 9
-  withdrawClosingHour: number; // e.g. 21
+  minDepositAmount?: number;
+  maxDepositAmount?: number;
+  minWithdrawAmount?: number;
+  maxWithdrawAmount?: number;
+  withdrawFeePercentage?: number;
+  signupBonusAmount?: number;
+  withdrawOpeningHour: number; // e.g. 8
+  withdrawClosingHour: number; // e.g. 23
   withdrawStartHour?: number;
   withdrawEndHour?: number;
   withdrawGloballyEnabled: boolean;
   isWithdrawDisabled?: boolean;
   allowFreeUserWithdrawal?: boolean; // When true, all free users can withdraw funds; when false, free users need permission or package
   hybridDepositVerificationEnabled: boolean;
+  maintenanceMode?: boolean;
   levelAPercentage: number; // e.g. 10
   levelBPercentage: number; // e.g. 5
   levelCPercentage: number; // e.g. 2
   dailyTaskResetHour: number; // 0 = 12:00 AM
   sundayIsOffDay: boolean;
+  cloudinaryCloudName?: string;
+  cloudinaryApiKey?: string;
+  cloudinaryApiSecret?: string;
+  cloudinaryUploadPreset?: string;
 }
 
 export interface CloudinarySettings {
   cloudName: string;
   apiKey: string;
   apiSecret: string;
+  uploadPreset?: string;
   isConfigured: boolean;
 }
 
@@ -263,6 +284,10 @@ export interface AdminUser {
   role: AdminRole;
   passwordHash: string;
   permissions: string[];
+  status?: 'active' | 'disabled';
+  email?: string;
+  lastLoginAt?: string;
+  createdAt?: string;
 }
 
 export interface ActivityLog {
@@ -272,6 +297,10 @@ export interface ActivityLog {
   action: string;
   target: string;
   details: string;
+  oldValue?: string;
+  newValue?: string;
+  reason?: string;
+  ip?: string;
   timestamp: string;
 }
 
@@ -283,4 +312,64 @@ export interface DeviceFingerprintRecord {
   trialWithdrawalAmount?: number;
   lastSeenIp: string;
   lastSeenAt: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderType: 'user' | 'admin';
+  message: string;
+  attachmentUrl?: string;
+  createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  userPhone: string;
+  subject: string;
+  category: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  createdAt: string;
+  updatedAt: string;
+  messages: SupportMessage[];
+}
+
+export interface HomeSlider {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  buttonText?: string;
+  buttonLink?: string;
+  startDate?: string;
+  endDate?: string;
+  status: 'active' | 'inactive';
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface RoleDefinition {
+  id: string;
+  roleName: AdminRole | string;
+  description: string;
+  permissions: string[];
+  userCount?: number;
+}
+
+export interface SystemHealthInfo {
+  serverStatus: 'healthy' | 'degraded' | 'offline';
+  uptimeSeconds: number;
+  uptimeFormatted: string;
+  nodeVersion: string;
+  memoryUsageMb: number;
+  heapUsedMb: number;
+  totalMemoryMb: number;
+  socketConnections: number;
+  cloudinaryStatus: 'connected' | 'unconfigured' | 'error';
+  databaseStatus: 'connected' | 'syncing' | 'error';
+  lastBackupAt?: string;
+  timestamp: string;
 }

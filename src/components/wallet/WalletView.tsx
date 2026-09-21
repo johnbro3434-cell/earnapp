@@ -28,6 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiRequest, getDeviceFingerprint } from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
 import { DepositRequest, WithdrawRequest, Transaction, PaymentNumber } from '../../types';
+import { ImageUploadInput } from '../common/ImageUploadInput';
 
 interface WalletViewProps {
   initialTab?: 'overview' | 'deposit' | 'withdraw' | 'passbook' | 'tracker';
@@ -151,13 +152,14 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
           assignedNumber,
           senderNumber,
           transactionId,
-          screenshotUrl: '',
+          screenshotUrl: screenshotPreview || '',
         }),
       });
 
       showToast('success', 'Deposit Submitted', 'Your deposit request is submitted for verification.');
       setSenderNumber('');
       setTransactionId('');
+      setScreenshotPreview('');
       await loadHistories();
       setActiveTab('deposit-history');
     } catch (err: any) {
@@ -492,6 +494,18 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                     onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
                     placeholder="e.g. BK89AJ92KD"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm uppercase font-mono tracking-wider focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <ImageUploadInput
+                    id="deposit-screenshot-upload"
+                    label="Payment Proof Screenshot (Optional)"
+                    value={screenshotPreview}
+                    onChange={setScreenshotPreview}
+                    folder="earnhub_deposits"
+                    placeholder="Upload payment receipt / screenshot to Cloudinary"
+                    helperText="Upload your bKash/Nagad payment success SMS or screenshot for instant manual admin approval."
                   />
                 </div>
 
