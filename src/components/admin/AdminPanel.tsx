@@ -61,6 +61,8 @@ import { ImageUploadInput } from '../common/ImageUploadInput';
 import { SupportCRMTab } from './SupportCRMTab';
 import { AdminUsersTab } from './AdminUsersTab';
 import { SlidersTab } from './SlidersTab';
+import { PackagesTab } from './PackagesTab';
+import { TasksTab } from './TasksTab';
 import { SystemHealthTab } from './SystemHealthTab';
 import { GlobalAdminSearchModal } from './GlobalAdminSearchModal';
 
@@ -1270,45 +1272,7 @@ export function AdminPanel() {
       )}
 
       {/* 4. TASK MANAGER MODULE */}
-      {activeTab === 'tasks' && (
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white">Video Task Catalog</h3>
-              <p className="text-xs text-slate-400">Strict 10-second duration required for all sponsor videos.</p>
-            </div>
-            <button
-              onClick={() => setShowAddTaskModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition cursor-pointer"
-            >
-              + Publish New Video Task
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {tasksList.map((task) => (
-              <div key={task.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative group">
-                <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 relative">
-                  <img src={task.thumbnailUrl} alt={task.title} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => handleDeleteTask(task.id)}
-                    className="absolute top-2 right-2 px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] rounded-lg shadow transition opacity-90 hover:opacity-100 cursor-pointer"
-                  >
-                    Delete
-                  </button>
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-sm truncate">{task.title}</h4>
-                  <div className="flex justify-between text-xs text-slate-400 mt-1">
-                    <span>{task.category}</span>
-                    <span className="text-emerald-400 font-bold">৳{task.rewardAmount} TK</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeTab === 'tasks' && <TasksTab />}
 
       {/* Add Task Modal */}
       {showAddTaskModal && (
@@ -1998,74 +1962,7 @@ export function AdminPanel() {
       )}
 
       {/* 4.5. PACKAGES MODULE */}
-      {activeTab === 'packages' && (
-        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-white">VIP Investment Packages Control</h3>
-              <p className="text-xs text-slate-400">Modify package pricing, daily income yields, and enable/disable VIP tiers instantly.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {packagesList.map((pkg) => (
-              <div key={pkg.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    {pkg.name}
-                  </span>
-                  <button
-                    onClick={() => handleUpdatePackage(pkg.id, { enabled: !pkg.enabled })}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border ${
-                      pkg.enabled
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                        : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                    }`}
-                  >
-                    {pkg.enabled ? 'ACTIVE' : 'DISABLED'}
-                  </button>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Price (TK):</span>
-                    <strong className="text-white font-mono">৳{pkg.price}</strong>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Daily Income:</span>
-                    <strong className="text-emerald-400 font-mono">৳{pkg.dailyIncome}</strong>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Validity Days:</span>
-                    <strong className="text-white font-mono">{pkg.validityDays} Days</strong>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Videos / Day:</span>
-                    <strong className="text-white font-mono">{pkg.videosPerDay}</strong>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-900 flex gap-2">
-                  <button
-                    onClick={() => {
-                      const newPrice = prompt('Enter new price (TK):', pkg.price.toString());
-                      if (newPrice !== null) {
-                        const newDaily = prompt('Enter new daily income (TK):', pkg.dailyIncome.toString());
-                        if (newDaily !== null) {
-                          handleUpdatePackage(pkg.id, { price: Number(newPrice), dailyIncome: Number(newDaily) });
-                        }
-                      }
-                    }}
-                    className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer"
-                  >
-                    Edit Package Rates
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeTab === 'packages' && <PackagesTab />}
 
       {/* 4.6. SLIDERS & MARQUEE MODULE */}
       {activeTab === 'sliders' && (

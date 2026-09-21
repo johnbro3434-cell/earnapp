@@ -34,6 +34,7 @@ import {
   SupportMessage,
   HomeSlider,
   VideoTask,
+  Package,
   SystemHealthInfo,
 } from '../src/types';
 
@@ -1654,10 +1655,37 @@ router.post('/admin/withdraws/:id/action', authenticateAdmin, (req: Request, res
   return res.json({ success: true, withdraw });
 });
 
-// 5. Package Manager: CRUD & Toggle
+// 5. Package Manager: CRUD, Create, Edit, Delete & Toggle
 router.get('/admin/packages', authenticateAdmin, (req: Request, res: Response) => {
   const store = getStore();
   return res.json({ packages: store.packages });
+});
+
+router.post('/admin/packages', authenticateAdmin, (req: Request, res: Response) => {
+  const { name, price, dailyIncome, videosPerDay, validityDays, badgeColor, enabled, isPopular } = req.body;
+  if (!name || price === undefined || dailyIncome === undefined || !videosPerDay) {
+    return res.status(400).json({ error: 'Package name, price, daily income, and daily videos count are required' });
+  }
+
+  const store = getStore();
+  const vpd = Math.max(1, Number(videosPerDay));
+  const income = Number(dailyIncome);
+  const newPkg: Package = {
+    id: `pkg_${Date.now()}`,
+    name: name.trim(),
+    price: Number(price),
+    dailyIncome: income,
+    videosPerDay: vpd,
+    incomePerVideo: Math.round((income / vpd) * 100) / 100,
+    validityDays: Number(validityDays) || 365,
+    badgeColor: badgeColor || 'emerald',
+    enabled: enabled !== undefined ? Boolean(enabled) : true,
+    isPopular: Boolean(isPopular),
+  };
+
+  store.packages.push(newPkg);
+  saveStore();
+  return res.json({ success: true, package: newPkg });
 });
 
 router.post('/admin/packages/:id', authenticateAdmin, (req: Request, res: Response) => {
@@ -1665,19 +1693,73 @@ router.post('/admin/packages/:id', authenticateAdmin, (req: Request, res: Respon
   const pkg = store.packages.find(p => p.id === req.params.id);
   if (!pkg) return res.status(404).json({ error: 'Package not found' });
 
-  const { price, dailyIncome, videosPerDay, enabled, isPopular } = req.body;
+  const { name, price, dailyIncome, videosPerDay, validityDays, badgeColor, enabled, isPopular } = req.body;
 
+  if (name !== undefined) pkg.name = name.trim();
   if (price !== undefined) pkg.price = Number(price);
   if (dailyIncome !== undefined) pkg.dailyIncome = Number(dailyIncome);
   if (videosPerDay !== undefined) {
-    pkg.videosPerDay = Number(videosPerDay);
-    pkg.incomePerVideo = pkg.dailyIncome / pkg.videosPerDay;
+    pkg.videosPerDay = Math.max(1, Number(videosPerDay));
   }
+  if (pkg.dailyIncome && pkg.videosPerDay) {
+    pkg.incomePerVideo = Math.round((pkg.dailyIncome / pkg.videosPerDay) * 100) / 100;
+  }
+  if (validityDays !== undefined) pkg.validityDays = Number(validityDays);
+  if (badgeColor !== undefined) pkg.badgeColor = badgeColor;
   if (enabled !== undefined) pkg.enabled = Boolean(enabled);
   if (isPopular !== undefined) pkg.isPopular = Boolean(isPopular);
 
   saveStore();
   return res.json({ success: true, package: pkg });
+});
+
+router.post('/admin/packages/:id/update', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const pkg = store.packages.find(p => p.id === req.params.id);
+  if (!pkg) return res.status(404).json({ error: 'Package not found' });
+
+  const { name, price, dailyIncome, videosPerDay, validityDays, badgeColor, enabled, isPopular } = req.body;
+
+  if (name !== undefined) pkg.name = name.trim();
+  if (price !== undefined) pkg.price = Number(price);
+  if (dailyIncome !== undefined) pkg.dailyIncome = Number(dailyIncome);
+  if (videosPerDay !== undefined) {
+    pkg.videosPerDay = Math.max(1, Number(videosPerDay));
+  }
+  if (pkg.dailyIncome && pkg.videosPerDay) {
+    pkg.incomePerVideo = Math.round((pkg.dailyIncome / pkg.videosPerDay) * 100) / 100;
+  }
+  if (validityDays !== undefined) pkg.validityDays = Number(validityDays);
+  if (badgeColor !== undefined) pkg.badgeColor = badgeColor;
+  if (enabled !== undefined) pkg.enabled = Boolean(enabled);
+  if (isPopular !== undefined) pkg.isPopular = Boolean(isPopular);
+
+  saveStore();
+  return res.json({ success: true, package: pkg });
+});
+
+router.post('/admin/packages/:id/toggle', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const pkg = store.packages.find(p => p.id === req.params.id);
+  if (!pkg) return res.status(404).json({ error: 'Package not found' });
+
+  pkg.enabled = !pkg.enabled;
+  saveStore();
+  return res.json({ success: true, package: pkg });
+});
+
+router.delete('/admin/packages/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const idx = store.packages.findIndex(p => p.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Package not found' });
+
+  if (store.packages[idx].id === 'pkg_trial') {
+    return res.status(400).json({ error: 'Cannot delete default Free Trial package' });
+  }
+
+  store.packages.splice(idx, 1);
+  saveStore();
+  return res.json({ success: true, message: 'Package deleted successfully' });
 });
 
 // 6. Referral & Salary Rules Manager
@@ -2785,7 +2867,15 @@ router.get('/admin/sliders', authenticateAdmin, (req: Request, res: Response) =>
   return res.json({ sliders: (store.sliders || []).sort((a, b) => a.sortOrder - b.sortOrder) });
 });
 
-router.get('/api/sliders/public', (req: Request, res: Response) => {
+router.get('/sliders', (req: Request, res: Response) => {
+  const store = getStore();
+  const activeSliders = (store.sliders || [])
+    .filter(s => s.status === 'active')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return res.json({ sliders: activeSliders });
+});
+
+router.get('/sliders/public', (req: Request, res: Response) => {
   const store = getStore();
   const activeSliders = (store.sliders || [])
     .filter(s => s.status === 'active')
