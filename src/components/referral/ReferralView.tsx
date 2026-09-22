@@ -34,7 +34,7 @@ export function ReferralView() {
       .finally(() => setLoading(false));
   }, []);
 
-  const referralLink = `${window.location.origin}?ref=${user?.referralCode || ''}`;
+  const referralLink = `https://earnnetworkbd.com?ref=${user?.referralCode || ''}`;
   const shareMessage = `EarnNetwork BD (earnnetworkbd.com) এ আমার রেফারেল কোড (${user?.referralCode}) দিয়ে যুক্ত হয়ে প্রতিদিন ভিডিও দেখে আয় করুন! রেজিস্ট্রেশন লিংক: ${referralLink}`;
 
   const copyLink = () => {
@@ -76,7 +76,7 @@ export function ReferralView() {
   };
 
   const shareToTelegram = () => {
-    const url = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(`Join EarnHub BD using sponsor code: ${user?.referralCode}`)}`;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(`Join EarnNetwork BD using sponsor code: ${user?.referralCode}`)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 

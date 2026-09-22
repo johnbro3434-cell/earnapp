@@ -292,14 +292,7 @@ export function attemptAutoVerification(
     };
   }
 
-  // Calculate Smart Verification Score (Patch 3)
-  const evalResult = calculateSmartVerificationScore(
-    deposit,
-    matchedSms,
-    settings.allowedSmsAgeHours || 24
-  );
-
-  // If SMS not yet arrived from gateway:
+  // If SMS not yet arrived from MFS gateway:
   if (!matchedSms) {
     logVerification({
       depositId: deposit.id,
@@ -310,7 +303,15 @@ export function attemptAutoVerification(
       amount: deposit.amount,
       status: 'pending_unmatched',
       score: 0,
-      scoreBreakdown: evalResult.breakdown,
+      scoreBreakdown: {
+        trxIdMatch: false,
+        amountMatch: false,
+        senderMatch: false,
+        methodMatch: false,
+        unusedCheck: true,
+        timeValid: true,
+        senderOwnershipPassed: true,
+      },
       reason: 'TrxID not yet received from MFS gateway',
       ipAddress: clientIp,
     });
@@ -320,10 +321,16 @@ export function attemptAutoVerification(
       autoVerified: false,
       status: 'pending',
       score: 0,
-      scoreBreakdown: evalResult.breakdown,
-      message: 'Deposit submitted. Waiting for incoming SMS from bKash/Nagad gateway...',
+      message: 'ডিপোজিট রিকোয়েস্ট জমা হয়েছে। MFS গেটওয়ে থেকে SMS সিঙ্ক হওয়া মাত্রই স্বয়ংক্রিয়ভাবে ওয়ালেটে ব্যালেন্স জমা হয়ে যাবে।',
     };
   }
+
+  // Calculate Smart Verification Score (Patch 3)
+  const evalResult = calculateSmartVerificationScore(
+    deposit,
+    matchedSms,
+    settings.allowedSmsAgeHours || 24
+  );
 
   // Handle critical fraud triggers:
   // Critical Reused TrxID

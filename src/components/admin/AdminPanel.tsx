@@ -748,10 +748,10 @@ export function AdminPanel() {
       <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 border-b border-slate-800 shrink-0 sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center font-extrabold text-sm">
-            EH
+            EN
           </div>
           <div>
-            <h1 className="text-sm font-black text-white">EarnHub CRM</h1>
+            <h1 className="text-sm font-black text-white">EarnNetwork CRM</h1>
             <p className="text-[10px] text-amber-400 font-semibold">{admin?.role || 'Super Admin'}</p>
           </div>
         </div>
@@ -849,10 +849,10 @@ export function AdminPanel() {
         <div className="space-y-6">
           <div className="flex items-center gap-3 pb-6 border-b border-slate-800">
             <div className="w-11 h-11 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center font-black shadow-inner">
-              EH
+              EN
             </div>
             <div>
-              <h2 className="text-sm font-black text-white leading-tight">EarnHub BD</h2>
+              <h2 className="text-sm font-black text-white leading-tight">EarnNetwork BD</h2>
               <span className="text-[11px] text-amber-400 font-extrabold tracking-wide uppercase">
                 {admin?.role || 'Super Admin'}
               </span>
@@ -1089,8 +1089,8 @@ export function AdminPanel() {
                       <td colSpan={7} className="p-6 text-center text-slate-500">No pending deposits in queue.</td>
                     </tr>
                   ) : (
-                    pendingDeposits.map((dep) => (
-                      <tr key={dep.id} className="hover:bg-slate-850">
+                    pendingDeposits.map((dep, idx) => (
+                      <tr key={`${dep.id || 'dep'}_${idx}`} className="hover:bg-slate-850">
                         <td className="p-3 font-bold text-emerald-400 text-sm">৳{dep.amount.toLocaleString()}</td>
                         <td className="p-3 font-semibold text-white">{dep.paymentMethod}</td>
                         <td className="p-3 font-mono text-slate-300">{dep.assignedNumber}</td>
@@ -1158,8 +1158,8 @@ export function AdminPanel() {
                       <td colSpan={6} className="p-6 text-center text-slate-500">No pending withdrawals in queue.</td>
                     </tr>
                   ) : (
-                    pendingWithdraws.map((wdr) => (
-                      <tr key={wdr.id} className="hover:bg-slate-850">
+                    pendingWithdraws.map((wdr, idx) => (
+                      <tr key={`${wdr.id || 'wdr'}_${idx}`} className="hover:bg-slate-850">
                         <td className="p-3 font-bold text-white">৳{wdr.amount.toLocaleString()}</td>
                         <td className="p-3 font-bold text-emerald-400">৳{wdr.netAmount.toLocaleString()}</td>
                         <td className="p-3 font-semibold text-slate-300">{wdr.paymentMethod}</td>
@@ -2115,7 +2115,7 @@ export function AdminPanel() {
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Marquee Ticker Text (রানিং নোটিশ)</label>
                   <textarea
                     rows={3}
-                    value={(siteSettings as any).marqueeText || '🎉 Welcome to EarnHub BD V20 Enterprise! Instant bKash & Nagad automated deposits & fast payouts.'}
+                    value={(siteSettings as any).marqueeText || '🎉 Welcome to EarnNetwork BD (earnnetworkbd.com)! Instant bKash & Nagad automated deposits & fast payouts.'}
                     onChange={(e) => setSiteSettings({ ...siteSettings, marqueeText: e.target.value } as any)}
                     className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs"
                   />
@@ -2453,7 +2453,7 @@ export function AdminPanel() {
                     type="text"
                     value={siteSettings.websiteName || ''}
                     onChange={(e) => setSiteSettings({ ...siteSettings, websiteName: e.target.value })}
-                    placeholder="EarnHub BD V20 Enterprise"
+                    placeholder="EarnNetwork BD"
                     className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:border-amber-400 focus:outline-none"
                   />
                 </div>
@@ -2493,7 +2493,7 @@ export function AdminPanel() {
                     type="text"
                     value={siteSettings.footerText || ''}
                     onChange={(e) => setSiteSettings({ ...siteSettings, footerText: e.target.value })}
-                    placeholder="© 2026 EarnHub BD Ltd. All Rights Reserved."
+                    placeholder="© 2026 EarnNetwork BD. All Rights Reserved."
                     className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:border-amber-400 focus:outline-none"
                   />
                 </div>
@@ -2843,7 +2843,7 @@ export function AdminPanel() {
                 rows={2}
                 value={siteSettings.marqueeNotice || ''}
                 onChange={(e) => setSiteSettings({ ...siteSettings, marqueeNotice: e.target.value })}
-                placeholder="🔥 EarnHub BD V20 Enterprise - প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ইনকাম করুন! নতুন মেম্বারদের জন্য ফ্রি ট্রায়াল চালু রয়েছে।"
+                placeholder="🔥 EarnNetwork BD (earnnetworkbd.com) - প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ইনকাম করুন! নতুন মেম্বারদের জন্য ফ্রি ট্রায়াল চালু রয়েছে।"
                 className="w-full px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:border-amber-400 focus:outline-none"
               />
             </div>

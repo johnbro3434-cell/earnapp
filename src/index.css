@@ -21,6 +21,26 @@
   padding-bottom: env(safe-area-inset-bottom, 16px);
 }
 
+.scroll-smooth-x {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scroll-behavior: smooth;
+  touch-action: pan-x;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.8);
+  border-radius: 9999px;
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }

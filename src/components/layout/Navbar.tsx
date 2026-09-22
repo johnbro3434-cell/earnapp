@@ -41,15 +41,23 @@ export function Navbar({ currentView, setCurrentView, isAdminMode, setIsAdminMod
             onClick={() => setCurrentView('home')}
             className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group min-w-0"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-950 shrink-0">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
+            {settings?.logoUrl ? (
+              <img
+                src={settings.logoUrl}
+                alt="EarnNetwork BD Logo"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover border border-emerald-500/30 shadow-lg shadow-emerald-950 shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-950 shrink-0">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+            )}
             <div className="min-w-0">
               <span className="font-bold text-sm sm:text-base md:text-lg text-white tracking-tight truncate block max-w-[130px] xs:max-w-[180px] sm:max-w-[240px] md:max-w-none group-hover:text-emerald-400 transition-colors">
                 {websiteName}
               </span>
               <span className="hidden sm:inline-block text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded-full uppercase tracking-wider">
-                V20 Live
+                Official
               </span>
             </div>
           </div>

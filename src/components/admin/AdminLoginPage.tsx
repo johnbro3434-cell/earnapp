@@ -35,19 +35,13 @@ export function AdminLoginPage({ onLoginSuccess, onReturnHome }: AdminLoginPageP
       if (!res.isAdmin) {
         throw new Error('Access denied. Provided credentials do not have administrator privileges.');
       }
-      showToast('success', 'Admin Portal Access Granted', 'Welcome to EarnHub Enterprise CRM & Control Center.');
+      showToast('success', 'Admin Portal Access Granted', 'Welcome to EarnNetwork Enterprise CRM & Control Center.');
       onLoginSuccess();
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Check your admin credentials.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillMasterDemo = () => {
-    setIdentifier('01712345678');
-    setPassword('admin123');
-    setError('');
   };
 
   return (
@@ -133,20 +127,11 @@ export function AdminLoginPage({ onLoginSuccess, onReturnHome }: AdminLoginPageP
           </button>
         </form>
 
-        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-          <button
-            type="button"
-            onClick={fillMasterDemo}
-            className="text-slate-400 hover:text-emerald-400 transition font-medium flex items-center gap-1"
-          >
-            <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Load Demo Master Credentials</span>
-          </button>
-
+        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-end text-xs">
           <button
             type="button"
             onClick={onReturnHome}
-            className="text-slate-500 hover:text-slate-300 transition"
+            className="text-slate-400 hover:text-slate-200 transition"
           >
             Return to Public Site
           </button>

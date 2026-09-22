@@ -21,7 +21,7 @@
       "withdrawPasswordHash": "$2b$10$QfqiT2yrECTN4NL7U7yPKO9HJw7spgcfjRM2lmkHaBsO9luSDQC/q",
       "deviceFingerprint": "fp_bd_at3u7qa6v2_mubh1p4h",
       "lastLoginIp": "27.123.253.229, 169.254.169.126",
-      "lastLoginAt": "2026-09-22T14:46:21.919Z"
+      "lastLoginAt": "2026-09-22T16:54:06.586Z"
     },
     {
       "id": "user_01822222222",
@@ -95,15 +95,15 @@
   "wallets": [
     {
       "userId": "user_01711111111",
-      "balance": 14100,
-      "totalDeposit": 24000,
+      "balance": 15100,
+      "totalDeposit": 25000,
       "totalWithdraw": 9200,
       "totalEarned": 12700,
       "todayIncome": 500,
       "referralIncome": 1850,
       "giftIncome": 100,
       "salaryIncome": 3000,
-      "updatedAt": "2026-09-22T15:48:45.310Z"
+      "updatedAt": "2026-09-22T16:46:52.320Z"
     },
     {
       "userId": "user_01822222222",
@@ -350,6 +350,16 @@
       "balanceAfter": 5100,
       "createdAt": "2026-09-22T15:14:07.581Z",
       "referenceId": "th_1790090047581_5jta"
+    },
+    {
+      "id": "tx_1790095612320",
+      "userId": "user_01711111111",
+      "type": "deposit",
+      "amount": 1000,
+      "description": "Instant Auto Gateway Deposit via bKash (BK156524788)",
+      "balanceAfter": 15100,
+      "createdAt": "2026-09-22T16:46:52.320Z",
+      "referenceId": "dep_1790095612320"
     }
   ],
   "packages": [
@@ -547,7 +557,7 @@
       "createdAt": "2026-09-22T15:41:19.468Z"
     },
     {
-      "id": "dep_test_2",
+      "id": "dep_test_3",
       "userId": "user_01711111111",
       "userPhone": "01711111111",
       "amount": 1500,
@@ -642,6 +652,20 @@
       "matchedSmsId": "sms_test_1790092125309",
       "reviewedAt": "2026-09-22T15:48:45.310Z",
       "reviewedBy": "SYSTEM (Smart Auto Verification)"
+    },
+    {
+      "id": "dep_1790095612320",
+      "userId": "user_01711111111",
+      "userPhone": "01711111111",
+      "amount": 1000,
+      "paymentMethod": "bKash",
+      "assignedNumber": "01712345678",
+      "senderNumber": "01711111111",
+      "transactionId": "BK156524788",
+      "screenshotUrl": "",
+      "status": "approved",
+      "verificationType": "auto",
+      "createdAt": "2026-09-22T16:46:52.320Z"
     }
   ],
   "withdraws": [
@@ -1017,6 +1041,15 @@
       "message": "Your 4-Day Free Trial is now active. Complete 1 video task today to earn 25 TK.",
       "isRead": false,
       "createdAt": "2026-09-22T14:52:11.396Z"
+    },
+    {
+      "id": "notif_1790095612320",
+      "userId": "user_01711111111",
+      "type": "deposit",
+      "title": "Deposit Approved (স্বয়ংক্রিয় গেটওয়ে)",
+      "message": "আপনার bKash অ্যাকাউন্টের মাধ্যমে ৳1,000 ইনস্ট্যান্ট ওয়ালেটে যোগ হয়েছে। TrxID: BK156524788",
+      "isRead": false,
+      "createdAt": "2026-09-22T16:46:52.326Z"
     }
   ],
   "settings": {
@@ -1488,7 +1521,7 @@
       "queueStatus": "Verified"
     },
     {
-      "id": "sms_2",
+      "id": "sms_3",
       "trxId": "AUTO840342",
       "method": "bKash",
       "amount": 1500,
@@ -1585,6 +1618,17 @@
       "usedByUser": "user_01711111111",
       "matchedDepositId": "dep_test_1790092125309",
       "queueStatus": "Used"
+    },
+    {
+      "id": "sms_gw_1790095612320",
+      "trxId": "BK156524788",
+      "amount": 1000,
+      "senderNumber": "01711111111",
+      "method": "bKash",
+      "rawSms": "Merchant Payment of Tk 1000 to EarnNetwork BD Ltd. successful. TrxID: BK156524788",
+      "used": true,
+      "usedByUser": "01711111111",
+      "createdAt": "2026-09-22T16:46:52.320Z"
     }
   ],
   "verificationLogs": [
@@ -2250,6 +2294,99 @@
       "forceUpdate": false,
       "releasedAt": "2026-09-20T15:26:46.314Z",
       "uploadedBy": "Sultan Mahmud (Chief Admin)"
+    }
+  ],
+  "withdrawCards": [
+    {
+      "id": "wcard_100",
+      "amount": 100,
+      "label": "ফ্রি ট্রায়াল কার্ড",
+      "badge": "FREE TRIAL",
+      "badgeColor": "cyan",
+      "minRole": "Member",
+      "isTrialAllowed": true,
+      "enabled": true,
+      "order": 1,
+      "description": "ফ্রি ট্রায়াল সম্পন্ন ইউজারদের জন্য নির্ধারিত উইথড্র কার্ড",
+      "createdAt": "2026-09-22T16:45:46.936Z"
+    },
+    {
+      "id": "wcard_460",
+      "amount": 460,
+      "label": "মিনি ক্যাশআউট",
+      "badge": "STARTER",
+      "badgeColor": "emerald",
+      "minRole": "Member",
+      "isTrialAllowed": false,
+      "enabled": true,
+      "order": 2,
+      "description": "ভিআইপি মেম্বারদের সর্বনিম্ন নিয়মিত ক্যাশআউট কার্ড",
+      "createdAt": "2026-09-22T16:45:46.936Z"
+    },
+    {
+      "id": "wcard_1680",
+      "amount": 1680,
+      "label": "স্ট্যান্ডার্ড পেআউট",
+      "badge": "POPULAR",
+      "badgeColor": "amber",
+      "minRole": "Member",
+      "isTrialAllowed": false,
+      "enabled": true,
+      "order": 3,
+      "description": "সর্বাধিক ব্যবহৃত জনপ্রিয় উইথড্র কার্ড",
+      "createdAt": "2026-09-22T16:45:46.936Z"
+    },
+    {
+      "id": "wcard_5800",
+      "amount": 5800,
+      "label": "এক্সিকিউটিভ ক্যাশ",
+      "badge": "FAST PAYOUT",
+      "badgeColor": "purple",
+      "minRole": "Member",
+      "isTrialAllowed": false,
+      "enabled": true,
+      "order": 4,
+      "description": "দ্রুত প্রসেসিং সম্পন্ন প্রিমিয়াম কার্ড",
+      "createdAt": "2026-09-22T16:45:46.936Z"
+    },
+    {
+      "id": "wcard_16800",
+      "amount": 16800,
+      "label": "প্রো আর্নার পেআউট",
+      "badge": "HOT",
+      "badgeColor": "rose",
+      "minRole": "Member",
+      "isTrialAllowed": false,
+      "enabled": true,
+      "order": 5,
+      "description": "হাই ভলিউম মেম্বারদের জন্য বিশেষ কার্ড",
+      "createdAt": "2026-09-22T16:45:46.936Z"
+    },
+    {
+      "id": "wcard_49999",
+      "amount": 49999,
+      "label": "মাস্টার ভিআইপি পেআউট",
+      "badge": "VIP CLUB",
+      "badgeColor": "amber",
+      "minRole": "Member",
+      "isTrialAllowed": false,
+      "enabled": true,
+      "order": 6,
+      "description": "ভিআইপি ও লিডারদের জন্য মেগা ক্যাশআউট",
+      "createdAt": "2026-09-22T16:45:46.936Z"
+    },
+    {
+      "id": "wcard_150000",
+      "amount": 150000,
+      "label": "রয়্যাল এলিট পেআউট",
+      "badge": "ELITE SUPREME",
+      "badgeColor": "cyan",
+      "minRole": "Member",
+      "isTrialAllowed": false,
+      "enabled": true,
+      "order": 7,
+      "description": "সর্বোচ্চ সীমা এক্সক্লুসিভ এলিট উইথড্র কার্ড",
+      "createdAt": "2026-09-22T16:45:46.936Z"
     }
   ]
 }

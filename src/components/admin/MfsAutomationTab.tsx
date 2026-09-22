@@ -455,7 +455,7 @@ export function MfsAutomationTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-white">Verification Engine Modes</h3>
-                  <p className="text-xs text-slate-400">Strictly locked primary rules of EarnHub BD V20</p>
+                  <p className="text-xs text-slate-400">Strictly locked primary rules of EarnNetwork BD</p>
                 </div>
                 <span className="text-[11px] px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
                   Rule v20.0
@@ -603,7 +603,7 @@ export function MfsAutomationTab() {
               </div>
 
               <p className="text-xs text-slate-400 leading-relaxed">
-                The official EarnHub BD Android SMS Forwarder runs as a foreground service on the SIM-bearing device. It listens for incoming bKash (16247) and Nagad (16167) messages, parses them in real-time, and posts them to <code className="text-emerald-400 font-mono">/api/admin/sms/sync</code>.
+                The official EarnNetwork BD Android SMS Forwarder runs as a foreground service on the SIM-bearing device. It listens for incoming bKash (16247) and Nagad (16167) messages, parses them in real-time, and posts them to <code className="text-emerald-400 font-mono">/api/admin/sms/sync</code>.
               </p>
 
               {/* Secret Token Box */}
@@ -801,9 +801,9 @@ export function MfsAutomationTab() {
             {smsList.length === 0 ? (
               <p className="text-center py-8 text-slate-500 text-xs">No SMS forwarded yet.</p>
             ) : (
-              smsList.map((sms) => (
+              smsList.map((sms, idx) => (
                 <div
-                  key={sms.id}
+                  key={`${sms.id || 'sms'}_${idx}`}
                   className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                 >
                   <div className="space-y-1.5 flex-1">

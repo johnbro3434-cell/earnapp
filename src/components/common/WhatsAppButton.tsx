@@ -9,7 +9,7 @@ export function WhatsAppButton() {
   const cleanNumber = rawNumber.replace(/[^0-9]/g, '');
 
   const handleClick = () => {
-    window.open(`https://wa.me/${cleanNumber}?text=Hello%20EarnHub%20BD%20Support,%20I%20need%20assistance.`, '_blank');
+    window.open(`https://wa.me/${cleanNumber}?text=Hello%20EarnNetwork%20BD%20Support,%20I%20need%20assistance.`, '_blank');
   };
 
   return (

@@ -61,7 +61,7 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
         <div className="w-12 h-12 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm font-semibold tracking-wide">Connecting to EarnHub BD V20 Enterprise...</p>
+        <p className="text-sm font-semibold tracking-wide">Connecting to EarnNetwork BD...</p>
       </div>
     );
   }

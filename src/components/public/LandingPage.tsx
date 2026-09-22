@@ -54,7 +54,7 @@ const heroSlides = [
 
 const faqs = [
   {
-    q: 'How does EarnHub BD V20 work?',
+    q: 'How does EarnNetwork BD work?',
     a: 'Registered members watch verified 10-second sponsor video tasks daily. Each video requires a live countdown, after which rewards are instantly credited to your real-time wallet balance.',
   },
   {
@@ -176,12 +176,12 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       <section id="section-about-company" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-5">
-            <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">About EarnHub BD</span>
+            <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">About EarnNetwork BD</span>
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
               Pioneering Trusted Micro-Task Digitization Across Bangladesh
             </h2>
             <p className="text-slate-300 leading-relaxed text-sm sm:text-base">
-              EarnHub BD V20 Enterprise bridges global digital advertisers with hardworking individuals and students across Bangladesh. By delivering high-attention 10-second interactive sponsor videos, brands achieve verifiable brand exposure while users generate dependable supplementary income.
+              EarnNetwork BD Enterprise bridges global digital advertisers with hardworking individuals and students across Bangladesh. By delivering high-attention 10-second interactive sponsor videos, brands achieve verifiable brand exposure while users generate dependable supplementary income.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
@@ -198,7 +198,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
             <div className="aspect-video rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
               <img
                 src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&auto=format&fit=crop&q=80"
-                alt="EarnHub BD Team"
+                alt="EarnNetwork BD Team"
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
@@ -219,7 +219,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
             <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">Built for Performance</span>
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">Why Bangladesh Chooses EarnHub BD</h2>
+            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">Why Bangladesh Chooses EarnNetwork BD</h2>
             <p className="text-slate-400 text-sm sm:text-base">
               Enterprise engineering guarantees that every task, click, and transaction is transparent and reliable.
             </p>
@@ -317,7 +317,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
                 <Mail className="w-5 h-5" />
               </div>
               <h4 className="font-bold text-white text-base">Support Desk</h4>
-              <p className="text-sm text-slate-400">support@earnhubbd.com</p>
+              <p className="text-sm text-slate-400">support@earnnetworkbd.com</p>
             </div>
           </div>
         </div>
@@ -326,7 +326,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       {/* 6. FOOTER */}
       <footer id="app-public-footer" className="mt-auto py-8 bg-slate-950 border-t border-slate-900 text-slate-500 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 EarnHub BD V20 Enterprise Ltd. All Rights Reserved.</p>
+          <p>© 2026 EarnNetwork BD Ltd. All Rights Reserved.</p>
           <div className="flex items-center gap-4">
             <span>Privacy Policy</span>
             <span>Terms of Service</span>

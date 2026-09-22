@@ -54,11 +54,73 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
   const [assignedNumber, setAssignedNumber] = useState<string>('');
   const [senderNumber, setSenderNumber] = useState('');
   const [transactionId, setTransactionId] = useState('');
-  const [screenshotPreview, setScreenshotPreview] = useState<string>(
-    'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80'
-  );
-  const [depositSubmitting, setDepositSubmitting] = useState(false);
-  const [copiedAssigned, setCopiedAssigned] = useState(false);
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyNumber = (num: string) => {
+    if (!num) return;
+    navigator.clipboard.writeText(num);
+    setCopied(true);
+    showToast('success', 'কপি সম্পন্ন!', `${depositMethod} নম্বরটি ক্লিপবোর্ডে কপি করা হয়েছে।`);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setScreenshotFile(e.target.files[0]);
+    }
+  };
+
+  const handleManualDepositSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = Number(depositAmount);
+    if (!amt || amt < 100 || amt > 25000) {
+      showToast('error', 'ভুল পরিমাণ', 'ডিপোজিট পরিমাণ ১০০ টাকা থেকে ২৫,০০০ টাকার মধ্যে হতে হবে।');
+      return;
+    }
+
+    if (!senderNumber || senderNumber.length < 11) {
+      showToast('error', 'নম্বর দিন', 'সঠিক প্রেরক মোবাইল নম্বর প্রদান করুন।');
+      return;
+    }
+
+    if (!transactionId || transactionId.trim().length < 6) {
+      showToast('error', 'TrxID দিন', 'সঠিক ট্রানজেকশন আইডি (TrxID) প্রদান করুন।');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res: any = await apiRequest('/api/wallet/deposit', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: amt,
+          paymentMethod: depositMethod,
+          assignedNumber: assignedNumber || (depositMethod === 'bKash' ? '01712345678' : '01823456789'),
+          senderNumber,
+          transactionId: transactionId.toUpperCase().trim(),
+        }),
+      });
+
+      if (res && (res.autoVerified || res.status === 'approved')) {
+        showToast('success', '⚡ ইনস্ট্যান্ট অটো-ভেরিফাইড!', `৳${amt.toLocaleString()} আপনার ওয়ালেটে জমা হয়েছে!`);
+      } else {
+        showToast('info', 'রিকোয়েস্ট জমা হয়েছে', res?.message || 'MFS গেটওয়ে থেকে SMS সিঙ্ক হওয়া মাত্রই স্বয়ংক্রিয়ভাবে ওয়ালেটে ব্যালেন্স জমা হবে।');
+      }
+
+      setTransactionId('');
+      setSenderNumber('');
+      setScreenshotFile(null);
+      await refreshUserData();
+      await loadHistories();
+      setActiveTab('deposit-history');
+    } catch (err: any) {
+      showToast('error', 'ডিপোজিট ব্যর্থ', err.message || 'ডিপোজিট প্রসেস করা সম্ভব হয়নি।');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Withdraw Form State
   const [selectedWithdrawCard, setSelectedWithdrawCard] = useState<number>(user?.isTrial ? 100 : 460);
@@ -137,64 +199,6 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
       console.warn('History load error:', e);
     } finally {
       setLoadingData(false);
-    }
-  };
-
-  const handleCopyAssigned = () => {
-    if (!assignedNumber) return;
-    navigator.clipboard.writeText(assignedNumber);
-    setCopiedAssigned(true);
-    showToast('success', 'কপি সম্পন্ন!', `${depositMethod} নম্বরটি ক্লিপবোর্ডে কপি করা হয়েছে।`);
-    setTimeout(() => setCopiedAssigned(false), 2500);
-  };
-
-  // Submit Deposit
-  const handleDepositSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt = Number(depositAmount);
-    if (!amt || amt < 100 || amt > 25000) {
-      showToast('error', 'ভুল পরিমাণ', 'ডিপোজিট পরিমাণ ১০০ টাকা থেকে ২৫,০০০ টাকার মধ্যে হতে হবে।');
-      return;
-    }
-    if (!senderNumber) {
-      showToast('error', 'প্রেরক নম্বর দিন', 'অনুগ্রহ করে আপনার প্রেরক (Sender) মোবাইল নম্বর লিখুন।');
-      return;
-    }
-    if (!transactionId || transactionId.trim().length < 6) {
-      showToast('error', 'সঠিক TrxID দিন', 'অনুগ্রহ করে সঠিক ট্রানজেকশন আইডি (TrxID) প্রদান করুন।');
-      return;
-    }
-
-    try {
-      setDepositSubmitting(true);
-      const res: any = await apiRequest('/api/wallet/deposit', {
-        method: 'POST',
-        body: JSON.stringify({
-          amount: amt,
-          paymentMethod: depositMethod,
-          assignedNumber,
-          senderNumber,
-          transactionId,
-          screenshotUrl: screenshotPreview || '',
-        }),
-      });
-
-      if (res && res.autoVerified) {
-        showToast('success', '⚡ ইনস্ট্যান্ট ডিপোজিট সফল!', res.message || 'আপনার ডিপোজিট অটো ভেরিফাই হয়েছে এবং ওয়ালেটে টাকা জমা হয়েছে!');
-      } else {
-        showToast('info', 'ডিপোজিট রিকোয়েস্ট গৃহীত', res?.message || 'পেমেন্ট গেটওয়ে এসএমএস মিললেই ব্যালেন্স সাথে সাথে যুক্ত হবে।');
-      }
-
-      setSenderNumber('');
-      setTransactionId('');
-      setScreenshotPreview('');
-      await refreshUserData();
-      await loadHistories();
-      setActiveTab('deposit-history');
-    } catch (err: any) {
-      showToast('error', 'ডিপোজিট ব্যর্থ', err.message || 'ডিপোজিট সম্পন্ন করা যায়নি।');
-    } finally {
-      setDepositSubmitting(false);
     }
   };
 
@@ -279,7 +283,7 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
 
   // Available Dynamic Withdraw Cards (with fallback):
   const fallbackDefaultCards: WithdrawCard[] = [
-    { id: 'wcard_100', amount: 100, label: 'ফ্রি ট্রায়াল কার্ড', badge: 'TRIAL', badgeColor: 'cyan', minRole: 'Trial', isTrialAllowed: true, enabled: true, order: 1 },
+    { id: 'wcard_100', amount: 100, label: 'ফ্রি ট্রায়াল কার্ড', badge: 'TRIAL', badgeColor: 'cyan', minRole: 'Member', isTrialAllowed: true, enabled: true, order: 1 },
     { id: 'wcard_460', amount: 460, label: 'স্ট্যান্ডার্ড পেআউট', badge: 'INSTANT', badgeColor: 'emerald', minRole: 'Member', isTrialAllowed: false, enabled: true, order: 2 },
     { id: 'wcard_1680', amount: 1680, label: 'পপুলার পেআউট', badge: 'POPULAR', badgeColor: 'purple', minRole: 'Member', isTrialAllowed: false, enabled: true, order: 3 },
     { id: 'wcard_5800', amount: 5800, label: 'প্রিমিয়াম পেআউট', badge: 'HOT', badgeColor: 'amber', minRole: 'Member', isTrialAllowed: false, enabled: true, order: 4 },
@@ -317,34 +321,36 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
   return (
     <div id="wallet-view-root" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-24 md:pb-12">
       {/* Wallet Navigation Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
-        {[
-          { id: 'overview', label: 'Wallet Overview', icon: Wallet },
-          { id: 'deposit', label: 'Deposit', icon: ArrowDownLeft },
-          { id: 'withdraw', label: 'Withdraw', icon: ArrowUpRight },
-          { id: 'passbook', label: 'Passbook', icon: FileText },
-          { id: 'deposit-history', label: 'Deposit Logs', icon: History },
-          { id: 'withdraw-history', label: 'Withdraw Logs', icon: History },
-          { id: 'tracker', label: 'Live Tracker', icon: Clock },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              id={`tab-wallet-${tab.id}`}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition ${
-                isActive
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/40 font-bold'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-900'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="relative w-full min-w-0">
+        <div className="w-full min-w-0 max-w-full flex items-center gap-2 pb-3 pt-1 border-b border-slate-800/80 flex-nowrap scroll-smooth-x scrollbar-thin">
+          {[
+            { id: 'overview', label: 'Overview', icon: Wallet },
+            { id: 'deposit', label: 'Deposit', icon: ArrowDownLeft },
+            { id: 'withdraw', label: 'Withdraw', icon: ArrowUpRight },
+            { id: 'passbook', label: 'Passbook', icon: FileText },
+            { id: 'deposit-history', label: 'Deposit Logs', icon: History },
+            { id: 'withdraw-history', label: 'Withdraw Logs', icon: History },
+            { id: 'tracker', label: 'Live Tracker', icon: Clock },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`tab-wallet-${tab.id}`}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shrink-0 transition whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/40 font-extrabold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900/80 bg-slate-950/40 border border-slate-800/60'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* TAB 1: OVERVIEW */}
@@ -432,88 +438,82 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-7 space-y-6">
             <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-white">Deposit Wallet Balance</h3>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Smart Auto-Verify Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400">
-                  Range: 100 TK to 25,000 TK. Instant automatic verification via bKash / Nagad gateway SMS.
-                </p>
-              </div>
-
-              {/* Smart Auto Notice */}
-              <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-200/90 flex items-start gap-2.5">
-                <span className="text-base leading-none">⚡</span>
+              
+              {/* Header Banner */}
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
                 <div>
-                  <span className="font-bold text-emerald-300">স্বয়ংক্রিয় ডিপোজিট সিস্টেম:</span> টাকা সেন্ড মানি করে শুধুমাত্র ট্রানজেকশন আইডি (TrxID) ও প্রেরক নম্বর দিয়ে সাবমিট করুন। সিস্টেম সরাসরি গেটওয়ে থেকে মিলিয়ে সাথে সাথে আপনার ওয়ালেটে ব্যালেন্স জমা করবে!
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-emerald-400" />
+                    এড মানি / ডিপোজিট (Deposit)
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    অফিশিয়াল নম্বরে সেন্ড মানি করে সঠিক TrxID ও প্রেরক নম্বর দিয়ে সাবমিট করুন।
+                  </p>
                 </div>
               </div>
 
-              {/* Payment Method Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Select Mobile Banking
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setDepositMethod('bKash')}
-                    className={`py-3 px-4 rounded-2xl border flex items-center justify-center gap-2 font-bold text-sm transition cursor-pointer ${
-                      depositMethod === 'bKash'
-                        ? 'bg-pink-950/50 border-pink-500 text-pink-300 shadow-lg'
-                        : 'bg-slate-950 border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <span>bKash</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDepositMethod('Nagad')}
-                    className={`py-3 px-4 rounded-2xl border flex items-center justify-center gap-2 font-bold text-sm transition cursor-pointer ${
-                      depositMethod === 'Nagad'
-                        ? 'bg-orange-950/50 border-orange-500 text-orange-300 shadow-lg'
-                        : 'bg-slate-950 border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <span>Nagad</span>
-                  </button>
+              {/* Form */}
+              <form onSubmit={handleManualDepositSubmit} className="space-y-6">
+                {/* 1. Payment Method Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    ১. মোবাইল ব্যাংকিং নির্বাচন করুন
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setDepositMethod('bKash')}
+                      className={`py-3.5 px-4 rounded-2xl border flex items-center justify-center gap-2.5 font-black text-sm transition cursor-pointer ${
+                        depositMethod === 'bKash'
+                          ? 'bg-[#E2136E]/20 border-[#E2136E] text-pink-300 shadow-xl shadow-pink-950/40'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full bg-[#E2136E]"></span>
+                      <span>bKash (বিকাশ)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDepositMethod('Nagad')}
+                      className={`py-3.5 px-4 rounded-2xl border flex items-center justify-center gap-2.5 font-black text-sm transition cursor-pointer ${
+                        depositMethod === 'Nagad'
+                          ? 'bg-[#F7931E]/20 border-[#F7931E] text-orange-300 shadow-xl shadow-orange-950/40'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full bg-[#F7931E]"></span>
+                      <span>Nagad (নগদ)</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Assigned Number Display Box */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Assigned {depositMethod} Number (Send Money)
-                  </span>
-                  <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-semibold">
-                    Personal
-                  </span>
+                {/* Assigned Official Number Display Box */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>অফিশিয়াল {depositMethod} পার্সোনাল নম্বর:</span>
+                    <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">
+                      Send Money Only
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-black text-xl text-white tracking-wider">
+                      {assignedNumber}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyNumber(assignedNumber)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copied ? 'Copied!' : 'Copy'}</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xl sm:text-2xl font-mono font-black text-white tracking-wider">
-                    {assignedNumber || '01712345678'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyAssigned}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition cursor-pointer"
-                  >
-                    {copiedAssigned ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedAssigned ? 'Copied' : 'Copy Number'}</span>
-                  </button>
-                </div>
-              </div>
 
-              {/* Deposit Form */}
-              <form onSubmit={handleDepositSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Deposit Amount (TK)
+                {/* 2. Amount Input */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    ২. ডিপোজিট পরিমাণ (৳১০০ - ৳২৫,০০০)
                   </label>
                   <input
                     id="input-deposit-amount"
@@ -522,16 +522,20 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                     max="25000"
                     value={depositAmount}
                     onChange={(e) => setDepositAmount(Number(e.target.value) || '')}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-base focus:border-emerald-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-2xl text-white font-black text-lg focus:border-emerald-500 focus:outline-none"
                     placeholder="1000"
                   />
-                  <div className="flex gap-2 mt-2">
-                    {[500, 2500, 7500, 22500].map((amt) => (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {[500, 1000, 2500, 5000, 7500, 22500].map((amt) => (
                       <button
                         key={amt}
                         type="button"
                         onClick={() => setDepositAmount(amt)}
-                        className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium"
+                        className={`text-xs px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+                          depositAmount === amt
+                            ? 'bg-emerald-500 text-slate-950 shadow'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                        }`}
                       >
                         ৳{amt.toLocaleString()}
                       </button>
@@ -539,57 +543,47 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Your {depositMethod} Mobile Number (Sender)
+                {/* 3. Sender Phone Number */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    ৩. আপনার প্রেরক নম্বর (Sender Number)
                   </label>
                   <input
-                    id="input-deposit-sender"
-                    type="text"
+                    id="input-sender-number"
+                    type="tel"
                     value={senderNumber}
                     onChange={(e) => setSenderNumber(e.target.value)}
-                    placeholder="017xxxxxxxx"
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:border-emerald-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-2xl text-white font-mono font-bold text-base focus:border-emerald-500 focus:outline-none"
+                    placeholder="017XXXXXXXX"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Transaction ID (TrxID)
+                {/* 4. Transaction ID (TrxID) */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    ৪. ট্রানজেকশন আইডি (TrxID)
                   </label>
                   <input
-                    id="input-deposit-trxid"
+                    id="input-transaction-id"
                     type="text"
                     value={transactionId}
                     onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
-                    placeholder="e.g. BK89AJ92KD"
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm uppercase font-mono tracking-wider focus:border-emerald-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-2xl text-white font-mono font-black text-lg uppercase tracking-widest focus:border-emerald-500 focus:outline-none"
+                    placeholder="e.g. BK9X82P8KL"
                   />
                 </div>
 
-                <div className="pt-1">
-                  <ImageUploadInput
-                    id="deposit-screenshot-upload"
-                    label="Payment Proof Screenshot (Optional)"
-                    value={screenshotPreview}
-                    onChange={setScreenshotPreview}
-                    folder="earnhub_deposits"
-                    placeholder="Upload payment receipt / screenshot to Cloudinary"
-                    helperText="Upload your bKash/Nagad payment success SMS or screenshot for instant manual admin approval."
-                  />
-                </div>
-
+                {/* Submit Action */}
                 <button
-                  id="btn-submit-deposit"
                   type="submit"
-                  disabled={depositSubmitting}
-                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-950/50 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="w-full py-4 rounded-2xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-xl transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {depositSubmitting ? (
-                    <span>অটো ভেরিফিকেশন চলছে...</span>
-                  ) : (
-                    <span>⚡ ইনস্ট্যান্ট ভেরিফাই ও ব্যালেন্স জমা করুন</span>
-                  )}
+                  <span>
+                    {loading
+                      ? 'ভেরিফাই করা হচ্ছে...'
+                      : 'ডিপোজিট সাবমিট করুন'}
+                  </span>
                 </button>
               </form>
             </div>
@@ -600,24 +594,20 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
             <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
               <h4 className="font-bold text-white text-sm flex items-center gap-2">
                 <Info className="w-4 h-4 text-emerald-400" />
-                Deposit Guidelines
+                জরুরি নির্দেশনা
               </h4>
-              <ul className="space-y-3 text-xs text-slate-300 leading-relaxed">
+              <ul className="space-y-2.5 text-xs text-slate-300 leading-relaxed">
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-emerald-400">1.</span>
-                  <span>Copy the official assigned {depositMethod} number shown above.</span>
+                  <span className="font-bold text-emerald-400">১.</span>
+                  <span>উপরে দেওয়া অফিশিয়াল {depositMethod} নম্বরে শুধু "Send Money" করুন।</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-emerald-400">2.</span>
-                  <span>Open your {depositMethod} app and perform "Send Money" for the exact intended amount.</span>
+                  <span className="font-bold text-emerald-400">২.</span>
+                  <span>টাকা পাঠানোর পর বিকাশ/নগদ অ্যাপ থেকে সঠিক TrxID ও প্রেরক নম্বর লিখুন।</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-emerald-400">3.</span>
-                  <span>Copy the generated Transaction ID (TrxID) and paste it into the form.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="font-bold text-emerald-400">4.</span>
-                  <span>Finance team verifies deposits manually within 10-30 minutes. Once approved, funds reflect instantly.</span>
+                  <span className="font-bold text-emerald-400">৩.</span>
+                  <span>তথ্য সাবমিট হওয়ার সাথে সাথেই স্বয়ংক্রিয়ভাবে ওয়ালেটে ব্যালেন্স জমা হয়ে যাবে।</span>
                 </li>
               </ul>
             </div>
@@ -737,7 +727,7 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-500/20">
                       <a
                         href={`https://wa.me/${(settings?.whatsappNumber || '8801700000000').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                          `Hello Support Team, I am a free user on EarnHub BD (Phone: ${user?.phone}). I would like to request permission to withdraw my earnings. Please enable permission for my account.`
+                          `Hello Support Team, I am a free user on EarnNetwork BD (Phone: ${user?.phone}). I would like to request permission to withdraw my earnings. Please enable permission for my account.`
                         )}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -978,8 +968,8 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                     <td colSpan={5} className="p-6 text-center text-slate-500">No transaction entries found.</td>
                   </tr>
                 ) : (
-                  transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-850/50">
+                  transactions.map((tx, idx) => (
+                    <tr key={`${tx.id || 'tx'}_${idx}`} className="hover:bg-slate-850/50">
                       <td className="p-3 font-semibold uppercase text-slate-300">{tx.type}</td>
                       <td className="p-3 text-slate-300">{tx.description}</td>
                       <td className={`p-3 font-bold ${tx.amount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -1008,8 +998,8 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
             {deposits.length === 0 ? (
               <p className="text-center py-8 text-slate-500 text-xs">No deposit requests recorded yet.</p>
             ) : (
-              deposits.map((dep) => (
-                <div key={dep.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              deposits.map((dep, idx) => (
+                <div key={`${dep.id || 'dep'}_${idx}`} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-white text-base">৳ {dep.amount.toLocaleString()}</span>
@@ -1050,8 +1040,8 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
             {withdraws.length === 0 ? (
               <p className="text-center py-8 text-slate-500 text-xs">No withdrawal records found.</p>
             ) : (
-              withdraws.map((wdr) => (
-                <div key={wdr.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              withdraws.map((wdr, idx) => (
+                <div key={`${wdr.id || 'wdr'}_${idx}`} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-white text-base">৳ {wdr.amount.toLocaleString()}</span>
@@ -1204,7 +1194,7 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                   </div>
                   <a
                     href={`https://wa.me/${(settings?.whatsappNumber || '8801700000000').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                      `Hello Support Team, I am a free user on EarnHub BD (Phone: ${user?.phone}). I would like to request permission to withdraw my earnings. Please check and enable permission for my account.`
+                      `Hello Support Team, I am a free user on EarnNetwork BD (Phone: ${user?.phone}). I would like to request permission to withdraw my earnings. Please check and enable permission for my account.`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"

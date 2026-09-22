@@ -78,7 +78,7 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
 
   const handleCopyReferral = () => {
     if (!user) return;
-    const link = `${window.location.origin}?ref=${user.referralCode}`;
+    const link = `https://earnnetworkbd.com?ref=${user.referralCode}`;
     navigator.clipboard.writeText(link);
     setCopiedRef(true);
     showToast('success', 'Referral Link Copied', 'Share with friends to earn Level A 10% commission!');
@@ -95,7 +95,7 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
 
   const handleShare = async () => {
     if (!user) return;
-    const link = `${window.location.origin}?ref=${user.referralCode}`;
+    const link = `https://earnnetworkbd.com?ref=${user.referralCode}`;
     const text = `Join EarnNetwork BD (earnnetworkbd.com) using my referral code ${user.referralCode} and start earning daily! (রেজিস্ট্রেশনের জন্য রেফার কোড আবশ্যক): ${link}`;
 
     if (navigator.share) {
@@ -132,31 +132,33 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
       {/* 1. ADMIN CONTROLLED HOMEPAGE CAROUSEL */}
       <HomeCarousel onNavigate={onNavigate} />
 
-      {/* 2 & 3. WALLET SUMMARY & TODAY'S INCOME */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2 & 3. WALLET SUMMARY & TODAY'S INCOME & ACTIVE PACKAGE & TASK PROGRESS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* Total Wallet Balance */}
-        <div id="card-wallet-balance" className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
+        <div
+          id="card-wallet-balance"
+          className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900/90 via-slate-900/75 to-emerald-950/30 border border-emerald-500/20 hover:border-emerald-500/40 backdrop-blur-xl shadow-xl shadow-black/30 flex flex-col justify-between transition-all duration-300 group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Wallet Balance</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Wallet Balance</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-4">
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               ৳ {(wallet?.balance || 0).toLocaleString()}
             </h2>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-3 flex items-center gap-2 pt-2 border-t border-slate-800/60">
               <button
                 onClick={() => onNavigate('wallet')}
-                className="text-xs font-semibold text-emerald-400 hover:underline flex items-center gap-0.5"
+                className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition active:scale-95 flex items-center gap-1 cursor-pointer min-h-[32px]"
               >
-                + Deposit Funds
+                + Deposit
               </button>
-              <span className="text-slate-600">•</span>
               <button
                 onClick={() => onNavigate('withdraw')}
-                className="text-xs font-semibold text-rose-400 hover:underline flex items-center gap-0.5"
+                className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-xs font-bold text-rose-300 transition active:scale-95 flex items-center gap-1 cursor-pointer min-h-[32px]"
               >
                 Withdraw
               </button>
@@ -165,70 +167,83 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
         </div>
 
         {/* Today's Income */}
-        <div id="card-today-income" className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
+        <div
+          id="card-today-income"
+          className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900/90 via-slate-900/75 to-teal-950/30 border border-teal-500/20 hover:border-teal-500/40 backdrop-blur-xl shadow-xl shadow-black/30 flex flex-col justify-between transition-all duration-300 group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Today's Income</span>
-            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Today's Income</span>
+            <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h2 className="text-2xl sm:text-3xl font-black text-teal-400 tracking-tight">
+          <div className="mt-4">
+            <h2 className="text-2xl sm:text-3xl font-black text-teal-300 tracking-tight">
               ৳ {(wallet?.todayIncome || 0).toLocaleString()}
             </h2>
-            <p className="text-[11px] text-slate-400 mt-1">Resets daily at 12:00 AM midnight</p>
+            <p className="text-[11px] font-medium text-slate-400 mt-2 pt-2 border-t border-slate-800/60 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-slate-500 inline" /> Resets daily at 12:00 AM midnight
+            </p>
           </div>
         </div>
 
         {/* 4. ACTIVE PACKAGE */}
-        <div id="card-active-package" className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
+        <div
+          id="card-active-package"
+          className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900/90 via-slate-900/75 to-cyan-950/30 border border-cyan-500/20 hover:border-cyan-500/40 backdrop-blur-xl shadow-xl shadow-black/30 flex flex-col justify-between transition-all duration-300 group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Package</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 uppercase">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Active Package</span>
+            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 uppercase tracking-wider">
               {user?.isTrial ? 'Trial Tier' : 'VIP Active'}
             </span>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl font-bold text-white">
+          <div className="mt-4">
+            <h3 className="text-xl font-black text-white tracking-tight">
               {activePackage?.name || (user?.isTrial ? 'Free Trial (4-Days)' : 'None')}
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-1 line-clamp-1">
               {activePackage
                 ? `${activePackage.videosPerDay} Videos/day • ৳${activePackage.dailyIncome} Daily`
                 : 'Purchase package with wallet balance to start'}
             </p>
-            <button
-              onClick={() => onNavigate('packages')}
-              className="mt-2 text-xs font-semibold text-cyan-400 hover:underline inline-flex items-center gap-1"
-            >
-              Upgrade Package <ChevronRight className="w-3 h-3" />
-            </button>
+            <div className="mt-3 pt-2 border-t border-slate-800/60">
+              <button
+                onClick={() => onNavigate('packages')}
+                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 cursor-pointer transition active:scale-95"
+              >
+                Upgrade Package <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* 5. TODAY'S TASK PROGRESS */}
-        <div id="card-task-progress" className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-sm flex flex-col justify-between">
+        <div
+          id="card-task-progress"
+          className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-900/90 via-slate-900/75 to-purple-950/30 border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-xl shadow-xl shadow-black/30 flex flex-col justify-between transition-all duration-300 group"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Task Progress</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Task Progress</span>
+            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
               <PlaySquare className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 space-y-2">
             <div className="flex items-baseline justify-between text-sm">
-              <span className="font-semibold text-white">
+              <span className="font-bold text-white">
                 {taskData?.completedCount ?? 0} / {taskData?.totalAllowed ?? (activePackage?.videosPerDay || 1)} Videos
               </span>
-              <span className="text-xs font-bold text-emerald-400">
+              <span className="text-xs font-extrabold text-purple-300">
                 {taskData?.totalAllowed
                   ? Math.round(((taskData.completedCount || 0) / taskData.totalAllowed) * 100)
                   : 0}
                 %
               </span>
             </div>
-            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-800">
               <div
-                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-purple-500 to-emerald-400 rounded-full transition-all duration-500"
                 style={{
                   width: `${
                     taskData?.totalAllowed
@@ -238,12 +253,14 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
                 }}
               />
             </div>
-            <button
-              onClick={() => onNavigate('tasks')}
-              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 pt-1"
-            >
-              Watch Video Tasks (10s) <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="pt-2 border-t border-slate-800/60">
+              <button
+                onClick={() => onNavigate('tasks')}
+                className="text-xs font-bold text-purple-300 hover:text-purple-200 flex items-center gap-1 cursor-pointer transition active:scale-95"
+              >
+                Watch Video Tasks (10s) <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -275,8 +292,14 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
 
       {/* 6. QUICK GRID MENU */}
       <div id="section-quick-grid" className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Quick Actions</h3>
-        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-extrabold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            Quick Navigation Hub
+          </h3>
+          <span className="text-[10px] text-slate-500 font-semibold">Touch friendly</span>
+        </div>
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 sm:gap-3.5">
           {quickGridItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -284,12 +307,12 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
                 key={item.id}
                 id={`btn-quick-grid-${item.id}`}
                 onClick={() => onNavigate(item.id)}
-                className="flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-850 active:scale-95 transition group cursor-pointer min-h-[72px] sm:min-h-[80px]"
+                className="flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/40 hover:bg-slate-900 backdrop-blur-md shadow-lg shadow-black/20 hover:shadow-emerald-950/20 active:scale-95 transition-all duration-200 group cursor-pointer min-h-[82px] sm:min-h-[92px]"
               >
-                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border mb-1.5 transition group-hover:scale-105 shrink-0 ${item.color}`}>
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center border mb-1.5 transition-transform group-hover:scale-110 shrink-0 shadow-inner ${item.color}`}>
+                  <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-[11px] sm:text-xs font-semibold text-slate-200 group-hover:text-emerald-400 transition-colors text-center truncate max-w-full block">
+                <span className="text-[11px] sm:text-xs font-bold text-slate-200 group-hover:text-emerald-300 transition-colors text-center truncate max-w-full block">
                   {item.label}
                 </span>
               </button>
@@ -300,21 +323,21 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
 
       {/* 7. PROMOTION BANNER */}
       {campaigns.length > 0 && (
-        <div id="section-promotion-banner" className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 p-5">
+        <div id="section-promotion-banner" className="relative rounded-3xl overflow-hidden border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-slate-900/90 to-slate-950 backdrop-blur-xl p-5 sm:p-6 shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-300 flex items-center justify-center shrink-0 shadow-lg">
                 <Gift className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Featured Campaign</span>
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Featured Campaign</span>
                 <h4 className="text-base font-bold text-white">{campaigns[0].title}</h4>
                 <p className="text-xs text-slate-400 line-clamp-1">{campaigns[0].description}</p>
               </div>
             </div>
             <button
               onClick={() => onNavigate('promotion')}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shrink-0 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shrink-0 cursor-pointer shadow-lg transition active:scale-95 min-h-[40px] flex items-center justify-center"
             >
               Claim Promotion
             </button>
@@ -323,28 +346,28 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
       )}
 
       {/* 8 & 9. RECENT NOTIFICATIONS & REFERRAL SUMMARY */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
         {/* 8. Recent Notifications */}
-        <div id="section-recent-notifications" className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
+        <div id="section-recent-notifications" className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <Bell className="w-4 h-4 text-emerald-400" />
               Recent Alerts
             </h4>
             <button
               onClick={() => onNavigate('notifications')}
-              className="text-xs font-semibold text-slate-400 hover:text-emerald-400"
+              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
             >
               View All
             </button>
           </div>
           <div className="space-y-2.5">
             {notifications.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center">No alerts to display.</p>
+              <p className="text-xs text-slate-500 py-6 text-center">No alerts to display.</p>
             ) : (
               notifications.map((n) => (
-                <div key={n.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs flex flex-col gap-0.5">
-                  <div className="flex justify-between font-semibold text-slate-200">
+                <div key={n.id} className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 text-xs flex flex-col gap-1 hover:border-slate-700 transition">
+                  <div className="flex justify-between font-bold text-slate-200">
                     <span>{n.title}</span>
                     <span className="text-[10px] text-slate-500">
                       {new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
@@ -358,8 +381,8 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
         </div>
 
         {/* 9. Referral Summary & Sharing Hub */}
-        <div id="section-referral-summary" className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
+        <div id="section-referral-summary" className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <Users className="w-4 h-4 text-purple-400" />
               Referral Invitation Center
@@ -367,7 +390,7 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleShare}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 text-xs font-semibold border border-purple-500/30 transition cursor-pointer"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold border border-purple-500/30 transition active:scale-95 cursor-pointer min-h-[36px]"
                 title="Share Invitation"
               >
                 <Share2 className="w-3.5 h-3.5" />
@@ -375,7 +398,7 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
               </button>
               <button
                 onClick={() => onNavigate('referral')}
-                className="text-xs font-semibold text-purple-400 hover:underline"
+                className="text-xs font-bold text-purple-400 hover:text-purple-300 cursor-pointer"
               >
                 Team Tree
               </button>
@@ -383,14 +406,14 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
           </div>
 
           {/* Referral Code Row */}
-          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Your Referral Code (রেফার কোড)</span>
-              <span className="text-base font-mono font-bold text-purple-400">{user?.referralCode}</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Your Referral Code (রেফার কোড)</span>
+              <span className="text-base font-mono font-black text-purple-300">{user?.referralCode}</span>
             </div>
             <button
               onClick={handleCopyCode}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-semibold transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-bold transition active:scale-95 cursor-pointer min-h-[38px]"
             >
               {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
@@ -398,17 +421,17 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
           </div>
 
           {/* Referral Link Row */}
-          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between gap-2">
             <div className="truncate flex-1">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-semibold">Your Referral Link (রেফারেল লিংক)</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Your Referral Link (রেফারেল লিংক)</span>
               <span className="text-xs text-slate-300 font-mono truncate block mt-0.5">
-                {typeof window !== 'undefined' ? `${window.location.origin}?ref=${user?.referralCode || ''}` : ''}
+                {`https://earnnetworkbd.com?ref=${user?.referralCode || ''}`}
               </span>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={handleCopyReferral}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition active:scale-95 cursor-pointer min-h-[38px]"
               >
                 {copiedRef ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
                 <span>{copiedRef ? 'Copied' : 'Copy Link'}</span>

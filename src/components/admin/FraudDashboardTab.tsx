@@ -337,8 +337,8 @@ export function FraudDashboardTab() {
                     </td>
                   </tr>
                 ) : (
-                  filteredFraudLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-850/60 transition">
+                  filteredFraudLogs.map((log, idx) => (
+                    <tr key={`${log.id || 'log'}_${idx}`} className="hover:bg-slate-850/60 transition">
                       <td className="p-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">
                         {new Date(log.createdAt).toLocaleString('en-US', {
                           month: 'short',
@@ -449,8 +449,8 @@ export function FraudDashboardTab() {
                     </td>
                   </tr>
                 ) : (
-                  filteredFailed.map((v) => (
-                    <tr key={v.id} className="hover:bg-slate-850/60 transition">
+                  filteredFailed.map((v, idx) => (
+                    <tr key={`${v.id || 'v'}_${idx}`} className="hover:bg-slate-850/60 transition">
                       <td className="p-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">
                         {new Date(v.createdAt).toLocaleTimeString('en-US', {
                           hour: '2-digit',
@@ -568,9 +568,9 @@ export function FraudDashboardTab() {
                 All connected Android gateway devices are healthy, authorized, and actively heartbeat streaming.
               </div>
             ) : (
-              suspiciousDevices.concat(blockedDevices).map((d) => (
+              suspiciousDevices.concat(blockedDevices).map((d, idx) => (
                 <div
-                  key={d.id}
+                  key={`${d.id || 'dev'}_${idx}`}
                   className={`p-4 rounded-2xl border ${
                     d.isBanned
                       ? 'bg-red-950/30 border-red-500/40'

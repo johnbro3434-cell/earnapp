@@ -48,6 +48,7 @@ import {
   WalletTransactionLedger,
   AuditLog,
   ApkVersionRecord,
+  WithdrawCard,
 } from '../src/types';
 import {
   attemptAutoVerification,
@@ -216,7 +217,7 @@ router.post('/auth/register', (req: Request, res: Response) => {
     id: `notif_${Date.now()}`,
     userId,
     type: 'task',
-    title: 'Welcome to EarnHub BD V20 Enterprise!',
+    title: 'Welcome to EarnNetwork BD!',
     message: 'Your 4-Day Free Trial is now active. Complete 1 video task today to earn 25 TK.',
     isRead: false,
     createdAt: new Date().toISOString(),

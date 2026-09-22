@@ -27,7 +27,7 @@ export function MyAccountView() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const referralLink = typeof window !== 'undefined' ? `${window.location.origin}?ref=${user?.referralCode || ''}` : '';
+  const referralLink = `https://earnnetworkbd.com?ref=${user?.referralCode || ''}`;
 
   const handleCopyLink = () => {
     if (!referralLink) return;
@@ -47,12 +47,12 @@ export function MyAccountView() {
 
   const handleShare = async () => {
     if (!user) return;
-    const text = `Join EarnHub BD using my referral code ${user.referralCode} and start earning daily! (রেজিস্ট্রেশনের জন্য রেফার কোড আবশ্যক): ${referralLink}`;
+    const text = `Join EarnNetwork BD (earnnetworkbd.com) using my referral code ${user.referralCode} and start earning daily! (রেজিস্ট্রেশনের জন্য রেফার কোড আবশ্যক): ${referralLink}`;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'EarnHub BD Invitation',
+          title: 'EarnNetwork BD Invitation',
           text,
           url: referralLink,
         });

@@ -39,12 +39,6 @@ export function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
     }
   };
 
-  const fillDemo = (p: string, pw: string) => {
-    setPhone(p);
-    setPassword(pw);
-    setError('');
-  };
-
   return (
     <div id="login-page-root" className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-950">
       <div className="max-w-md w-full space-y-8 p-6 sm:p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl">
@@ -52,7 +46,7 @@ export function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
             <Shield className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Sign In to EarnHub BD</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-white">Sign In to EarnNetwork BD</h2>
           <p className="text-xs text-slate-400">
             Access your real-time wallet and daily sponsor video tasks.
           </p>
@@ -114,39 +108,6 @@ export function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
             {!loading && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
-
-        {/* Demo Fast Fill Buttons for Testing */}
-        <div className="pt-4 border-t border-slate-800 space-y-2">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center">
-            One-Click Test Credentials
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              id="btn-demo-admin"
-              type="button"
-              onClick={() => fillDemo('01700000000', 'admin123')}
-              className="px-2 py-1.5 text-xs font-medium rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/20 transition text-center"
-            >
-              Main Admin
-            </button>
-            <button
-              id="btn-demo-paid"
-              type="button"
-              onClick={() => fillDemo('01711111111', 'user123')}
-              className="px-2 py-1.5 text-xs font-medium rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 transition text-center"
-            >
-              Golden User
-            </button>
-            <button
-              id="btn-demo-trial"
-              type="button"
-              onClick={() => fillDemo('01822222222', 'user123')}
-              className="px-2 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20 transition text-center"
-            >
-              Free Trial
-            </button>
-          </div>
-        </div>
 
         <div className="text-center text-xs text-slate-400">
           Don't have an account?{' '}
