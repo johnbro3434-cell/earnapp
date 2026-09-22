@@ -1,5 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { setMfsSocketIO } from './mfsService';
 
 let io: SocketIOServer | null = null;
 let onlineUserCount = 0;
@@ -12,6 +13,8 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     },
     transports: ['websocket', 'polling'],
   });
+
+  setMfsSocketIO(io);
 
   io.on('connection', (socket: Socket) => {
     onlineUserCount++;

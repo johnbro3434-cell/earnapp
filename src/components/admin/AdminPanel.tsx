@@ -51,6 +51,8 @@ import {
   Upload,
   MessageSquare,
   Activity,
+  Cpu,
+  CreditCard,
 } from 'lucide-react';
 import { apiRequest, removeToken } from '../../lib/api';
 import { getSocket, joinAdminRoom } from '../../lib/socket';
@@ -62,9 +64,19 @@ import { SupportCRMTab } from './SupportCRMTab';
 import { AdminUsersTab } from './AdminUsersTab';
 import { SlidersTab } from './SlidersTab';
 import { PackagesTab } from './PackagesTab';
+import { WithdrawCardsTab } from './WithdrawCardsTab';
 import { TasksTab } from './TasksTab';
 import { SystemHealthTab } from './SystemHealthTab';
 import { GlobalAdminSearchModal } from './GlobalAdminSearchModal';
+import { MfsAutomationTab } from './MfsAutomationTab';
+import { FraudDashboardTab } from './FraudDashboardTab';
+import {
+  exportUsersToCSV,
+  exportDepositsToCSV,
+  exportWithdrawalsToCSV,
+  exportWalletLedgerToCSV,
+  exportAuditLogsToCSV,
+} from '../../lib/exportUtils';
 
 export function AdminPanel() {
   const { admin } = useAuth();
@@ -74,6 +86,8 @@ export function AdminPanel() {
     | 'analytics'
     | 'users'
     | 'finance'
+    | 'withdraw_cards'
+    | 'mfs_automation'
     | 'tasks'
     | 'packages'
     | 'referrals'
@@ -91,6 +105,7 @@ export function AdminPanel() {
     | 'settings'
     | 'cloudinary'
   >('analytics');
+  const [securitySubTab, setSecuritySubTab] = useState<'mfs_fraud' | 'devices'>('mfs_fraud');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
@@ -500,6 +515,28 @@ export function AdminPanel() {
     }
   };
 
+  // Export All Deposits to CSV
+  const handleExportAllDeposits = async () => {
+    try {
+      const data = await apiRequest('/api/admin/deposits');
+      exportDepositsToCSV(Array.isArray(data) ? data : pendingDeposits);
+      showToast('success', 'Export Complete', 'Deposits CSV downloaded successfully.');
+    } catch {
+      exportDepositsToCSV(pendingDeposits);
+    }
+  };
+
+  // Export All Withdrawals to CSV
+  const handleExportAllWithdrawals = async () => {
+    try {
+      const data = await apiRequest('/api/admin/withdraws');
+      exportWithdrawalsToCSV(Array.isArray(data) ? data : pendingWithdraws);
+      showToast('success', 'Export Complete', 'Withdrawals CSV downloaded successfully.');
+    } catch {
+      exportWithdrawalsToCSV(pendingWithdraws);
+    }
+  };
+
   // Add Payment Number
   const handleAddPaymentNumber = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -647,6 +684,20 @@ export function AdminPanel() {
       icon: DollarSign,
       badge: pendingDeposits.length + pendingWithdraws.length > 0 ? `${pendingDeposits.length + pendingWithdraws.length}` : undefined,
       badgeColor: 'bg-rose-500 text-white',
+    },
+    {
+      id: 'withdraw_cards',
+      label: 'Withdraw Cards (CRUD)',
+      icon: CreditCard,
+      badge: 'Manage',
+      badgeColor: 'bg-emerald-500/20 text-emerald-400 font-bold',
+    },
+    {
+      id: 'mfs_automation',
+      label: 'MFS Auto Verification',
+      icon: Cpu,
+      badge: 'V20 Auto',
+      badgeColor: 'bg-emerald-500 text-slate-950 font-black',
     },
     {
       id: 'users',
@@ -873,6 +924,8 @@ export function AdminPanel() {
             <h2 className="text-xl sm:text-2xl font-black text-white">
               {activeTab === 'analytics' && 'Dashboard Overview & Real-Time Metrics'}
               {activeTab === 'finance' && 'Finance Engine: Deposits & Payouts'}
+              {activeTab === 'withdraw_cards' && 'Withdrawal Amount Cards Management (CRUD)'}
+              {activeTab === 'mfs_automation' && 'Smart Auto Deposit Verification (bKash & Nagad SMS Gateway)'}
               {activeTab === 'users' && 'User CRM & Balance Management'}
               {activeTab === 'support' && 'Support Ticket CRM & Member Inquiries'}
               {activeTab === 'tasks' && 'Sponsored Video Tasks Manager'}
@@ -951,9 +1004,37 @@ export function AdminPanel() {
 
           {/* Recharts Inflow / Outflow Visualizer */}
           <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-            <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-              Financial Traffic Overview (Last 7 Days)
-            </h4>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                Financial Traffic Overview (Last 7 Days)
+              </h4>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => exportUsersToCSV(userList)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                  title="Export all registered users"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Export Users CSV</span>
+                </button>
+                <button
+                  onClick={handleExportAllDeposits}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                  title="Export all deposit records"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export Deposits CSV</span>
+                </button>
+                <button
+                  onClick={handleExportAllWithdrawals}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                  title="Export all withdrawal requests"
+                >
+                  <Download className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Export Withdrawals CSV</span>
+                </button>
+              </div>
+            </div>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.chartData || []}>
@@ -1168,6 +1249,12 @@ export function AdminPanel() {
           </div>
         </div>
       )}
+
+      {/* MFS AUTOMATION MODULE */}
+      {activeTab === 'mfs_automation' && <MfsAutomationTab />}
+
+      {/* WITHDRAW CARDS CRUD MODULE */}
+      {activeTab === 'withdraw_cards' && <WithdrawCardsTab />}
 
       {/* 3. USER MANAGEMENT MODULE */}
       {activeTab === 'users' && (
@@ -1826,78 +1913,108 @@ export function AdminPanel() {
       {/* 19. FRAUD & SECURITY CENTER */}
       {activeTab === 'security' && (
         <div className="space-y-6">
-          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-rose-400" />
-                  Fraud Detection & Device Intelligence (ডিভাইস নিরাপত্তা)
-                </h3>
-                <p className="text-xs text-slate-400">Detect multi-account abuse, same-device free trial reuse, and suspicious behavior.</p>
+          {/* Security Sub-tabs switcher */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800">
+            <button
+              onClick={() => setSecuritySubTab('mfs_fraud')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                securitySubTab === 'mfs_fraud'
+                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-950/40 font-black'
+                  : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4" />
+              <span>MFS Auto Verification Fraud Defense</span>
+            </button>
+            <button
+              onClick={() => setSecuritySubTab('devices')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                securitySubTab === 'devices'
+                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-950/40 font-black'
+                  : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Device Fingerprinting & Multi-Accounts ({deviceRecords.length})</span>
+            </button>
+          </div>
+
+          {securitySubTab === 'mfs_fraud' ? (
+            <FraudDashboardTab />
+          ) : (
+            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-rose-400" />
+                    Fraud Detection & Device Intelligence (ডিভাইস নিরাপত্তা)
+                  </h3>
+                  <p className="text-xs text-slate-400">Detect multi-account abuse, same-device free trial reuse, and suspicious behavior.</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
+                    <tr>
+                      <th className="p-3">Device Fingerprint</th>
+                      <th className="p-3">Associated Accounts</th>
+                      <th className="p-3">Trial Claimed?</th>
+                      <th className="p-3">Last Seen IP</th>
+                      <th className="p-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {deviceRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-slate-500">No device security violations detected.</td>
+                      </tr>
+                    ) : (
+                      deviceRecords.map((d: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-850">
+                          <td className="p-3 font-mono text-cyan-300 font-bold">{d.deviceFingerprint?.slice(0, 16)}...</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              (d.associatedUserIds?.length || 0) > 1 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'
+                            }`}>
+                              {d.associatedUserIds?.length || 1} Account(s)
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-300">
+                            {d.trialWithdrawalCompleted ? (
+                              <span className="text-amber-400 font-bold">Yes (৳{d.trialWithdrawalAmount || 300})</span>
+                            ) : (
+                              <span className="text-slate-500">No</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-mono text-slate-400">{d.lastSeenIp || '127.0.0.1'}</td>
+                          <td className="p-3">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await apiRequest('/api/admin/security/ban-device', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ deviceFingerprint: d.deviceFingerprint }),
+                                  });
+                                  showToast('success', 'Device Banned', `Device ${d.deviceFingerprint.slice(0, 8)} banned.`);
+                                  loadAllAdminData();
+                                } catch (e: any) {
+                                  showToast('error', 'Error', e.message);
+                                }
+                              }}
+                              className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition cursor-pointer"
+                            >
+                              Ban Device
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
-                  <tr>
-                    <th className="p-3">Device Fingerprint</th>
-                    <th className="p-3">Associated Accounts</th>
-                    <th className="p-3">Trial Claimed?</th>
-                    <th className="p-3">Last Seen IP</th>
-                    <th className="p-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {deviceRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="p-6 text-center text-slate-500">No device security violations detected.</td>
-                    </tr>
-                  ) : (
-                    deviceRecords.map((d: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-850">
-                        <td className="p-3 font-mono text-cyan-300 font-bold">{d.deviceFingerprint?.slice(0, 16)}...</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                            (d.associatedUserIds?.length || 0) > 1 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'
-                          }`}>
-                            {d.associatedUserIds?.length || 1} Account(s)
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-300">
-                          {d.trialWithdrawalCompleted ? (
-                            <span className="text-amber-400 font-bold">Yes (৳{d.trialWithdrawalAmount || 300})</span>
-                          ) : (
-                            <span className="text-slate-500">No</span>
-                          )}
-                        </td>
-                        <td className="p-3 font-mono text-slate-400">{d.lastSeenIp || '127.0.0.1'}</td>
-                        <td className="p-3">
-                          <button
-                            onClick={async () => {
-                              try {
-                                await apiRequest('/api/admin/security/ban-device', {
-                                  method: 'POST',
-                                  body: JSON.stringify({ deviceFingerprint: d.deviceFingerprint }),
-                                });
-                                showToast('success', 'Device Banned', `Device ${d.deviceFingerprint.slice(0, 8)} banned.`);
-                                loadAllAdminData();
-                              } catch (e: any) {
-                                showToast('error', 'Error', e.message);
-                              }
-                            }}
-                            className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-xs transition"
-                          >
-                            Ban Device
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          )}
         </div>
       )}
 

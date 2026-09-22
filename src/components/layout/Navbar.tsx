@@ -14,7 +14,7 @@ export function Navbar({ currentView, setCurrentView, isAdminMode, setIsAdminMod
   const { user, admin, isAdmin, wallet, settings, logout, unreadCount } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const websiteName = settings?.websiteName || 'EarnHub BD V20 Enterprise';
+  const websiteName = settings?.websiteName || 'EarnNetwork BD';
 
   const getRoleBadgeStyle = (role?: string) => {
     switch (role) {

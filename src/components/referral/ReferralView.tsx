@@ -35,7 +35,7 @@ export function ReferralView() {
   }, []);
 
   const referralLink = `${window.location.origin}?ref=${user?.referralCode || ''}`;
-  const shareMessage = `EarnHub BD V20 Enterprise এ আমার রেফারেল কোড (${user?.referralCode}) দিয়ে যুক্ত হয়ে প্রতিদিন ভিডিও দেখে আয় করুন! রেজিস্ট্রেশন লিংক: ${referralLink}`;
+  const shareMessage = `EarnNetwork BD (earnnetworkbd.com) এ আমার রেফারেল কোড (${user?.referralCode}) দিয়ে যুক্ত হয়ে প্রতিদিন ভিডিও দেখে আয় করুন! রেজিস্ট্রেশন লিংক: ${referralLink}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(referralLink);
@@ -56,8 +56,8 @@ export function ReferralView() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'EarnHub BD V20 Enterprise Invitation',
-          text: `Join EarnHub BD using my referral code ${user?.referralCode} and start earning today! (রেফারেল কোড ছাড়া রেজিস্ট্রেশন করা যায় না)`,
+          title: 'EarnNetwork BD Invitation',
+          text: `Join EarnNetwork BD (earnnetworkbd.com) using my referral code ${user?.referralCode} and start earning today! (রেফারেল কোড ছাড়া রেজিস্ট্রেশন করা যায় না)`,
           url: referralLink,
         });
       } catch (err: any) {

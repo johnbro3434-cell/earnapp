@@ -5,6 +5,9 @@ import { v2 as cloudinary } from 'cloudinary';
 import {
   getStore,
   saveStore,
+  recordWalletLedgerEntry,
+  recordFinancialAuditLog,
+  isTrxUnique,
 } from './db';
 import {
   emitWalletUpdated,
@@ -36,7 +39,25 @@ import {
   VideoTask,
   Package,
   SystemHealthInfo,
+  PaymentNumber,
+  SmsTransaction,
+  VerifyDevice,
+  MfsVerificationSettings,
+  VerificationLog,
+  FraudLog,
+  WalletTransactionLedger,
+  AuditLog,
+  ApkVersionRecord,
 } from '../src/types';
+import {
+  attemptAutoVerification,
+  checkPendingDepositsForIncomingSms,
+  logVerification,
+  logFraud,
+  getDefaultMfsSettings,
+  retryFailedSmsQueue,
+} from './mfsService';
+import { parseMfsSms, cleanBdPhone } from './smsParser';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'earnhub-bd-v20-locked-secret-key-2026';
@@ -92,15 +113,15 @@ router.post('/auth/register', (req: Request, res: Response) => {
   const { phone, password, referralCode, deviceFingerprint } = req.body;
 
   if (!phone || !password) {
-    return res.status(400).json({ error: 'Phone number and password are required' });
+    return res.status(400).json({ error: 'মোবাইল নম্বর এবং পাসওয়ার্ড প্রদান করা আবশ্যক।' });
   }
 
   if (!isValidBdPhone(phone)) {
-    return res.status(400).json({ error: 'Invalid Bangladesh phone number format (e.g. 017xxxxxxxx)' });
+    return res.status(400).json({ error: 'সঠিক ১১ ডিজিটের বাংলাদেশি মোবাইল নম্বর প্রদান করুন (যেমন: 017xxxxxxxx)।' });
   }
 
   if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    return res.status(400).json({ error: 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।' });
   }
 
   const normalizedPhone = normalizeBdPhone(phone);
@@ -108,13 +129,13 @@ router.post('/auth/register', (req: Request, res: Response) => {
 
   const existingUser = store.users.find(u => u.phone === normalizedPhone);
   if (existingUser) {
-    return res.status(400).json({ error: 'This phone number is already registered' });
+    return res.status(400).json({ error: 'এই মোবাইল নম্বরটি দিয়ে ইতিমধ্যে অ্যাকাউন্ট খোলা হয়েছে।' });
   }
 
   // Referral code validation (MANDATORY: cannot create account without valid referral code)
   if (!referralCode || !referralCode.trim()) {
     return res.status(400).json({
-      error: 'Referral code is required. Account cannot be created without a valid referral code. (রেফার কোড আবশ্যক, রেফার কোড ছাড়া অ্যাকাউন্ট তৈরি করা সম্ভব নয়)।',
+      error: 'রেফার কোড আবশ্যক! রেফার কোড ছাড়া অ্যাকাউন্ট তৈরি করা সম্ভব নয়।',
     });
   }
 
@@ -124,7 +145,7 @@ router.post('/auth/register', (req: Request, res: Response) => {
 
   if (!uplineUser && !isOfficialCode) {
     return res.status(400).json({
-      error: 'Invalid referral code. Please enter an active and valid referral code. (ভুল রেফার কোড। অনুগ্রহ করে সঠিক ও সক্রিয় রেফার কোড দিন)।',
+      error: 'ভুল বা নিষ্ক্রিয় রেফার কোড। অনুগ্রহ করে সঠিক ও সক্রিয় রেফার কোড দিন।',
     });
   }
 
@@ -224,7 +245,7 @@ router.post('/auth/login', (req: Request, res: Response) => {
   const { phone, password, deviceFingerprint } = req.body;
 
   if (!phone || !password) {
-    return res.status(400).json({ error: 'Phone number and password are required' });
+    return res.status(400).json({ error: 'মোবাইল নম্বর এবং পাসওয়ার্ড প্রদান করা আবশ্যক।' });
   }
 
   const normalizedPhone = normalizeBdPhone(phone);
@@ -249,11 +270,11 @@ router.post('/auth/login', (req: Request, res: Response) => {
   // Check regular users
   const user = store.users.find(u => u.phone === normalizedPhone);
   if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
-    return res.status(401).json({ error: 'Invalid phone number or password' });
+    return res.status(401).json({ error: 'মোবাইল নম্বর অথবা পাসওয়ার্ড সঠিক নয়।' });
   }
 
   if (user.status === 'suspended') {
-    return res.status(403).json({ error: 'Your account has been suspended by administration' });
+    return res.status(403).json({ error: 'আপনার অ্যাকাউন্টটি সাময়িকভাবে স্থগিত বা নিষ্ক্রিয় করা হয়েছে। অ্যাডমিনের সাথে যোগাযোগ করুন।' });
   }
 
   // Update login data
@@ -334,20 +355,20 @@ router.post('/auth/change-password', authenticateUser, (req: Request, res: Respo
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    return res.status(400).json({ error: 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।' });
   }
 
   const store = getStore();
   const user = store.users.find(u => u.id === tokenUser.id);
   if (!user || !user.passwordHash || !bcrypt.compareSync(currentPassword, user.passwordHash)) {
-    return res.status(400).json({ error: 'Incorrect current password' });
+    return res.status(400).json({ error: 'বর্তমান পাসওয়ার্ডটি সঠিক নয়।' });
   }
 
   const salt = bcrypt.genSaltSync(10);
   user.passwordHash = bcrypt.hashSync(newPassword, salt);
   saveStore();
 
-  return res.json({ success: true, message: 'Password updated successfully' });
+  return res.json({ success: true, message: 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।' });
 });
 
 // ==========================================
@@ -358,24 +379,24 @@ router.post('/wallet/withdraw-setup', authenticateUser, (req: Request, res: Resp
   const { paymentMethod, withdrawNumber, withdrawPassword } = req.body;
 
   if (!paymentMethod || !withdrawNumber || !withdrawPassword) {
-    return res.status(400).json({ error: 'Payment method, withdraw number, and withdraw password are required' });
+    return res.status(400).json({ error: 'পেমেন্ট মেথড, উইথড্র নম্বর এবং উইথড্র পাসওয়ার্ড প্রদান করা আবশ্যক।' });
   }
 
   if (paymentMethod !== 'bKash' && paymentMethod !== 'Nagad') {
-    return res.status(400).json({ error: 'Payment method must be bKash or Nagad' });
+    return res.status(400).json({ error: 'পেমেন্ট মেথড হিসেবে বিকাশ (bKash) অথবা নগদ (Nagad) নির্বাচন করুন।' });
   }
 
   if (!isValidBdPhone(withdrawNumber)) {
-    return res.status(400).json({ error: 'Invalid Bangladesh phone number for withdraw' });
+    return res.status(400).json({ error: 'সঠিক ১১ ডিজিটের বাংলাদেশি মোবাইল নম্বর প্রদান করুন।' });
   }
 
   const normalizedWithdrawNumber = normalizeBdPhone(withdrawNumber);
   const store = getStore();
   const user = store.users.find(u => u.id === tokenUser.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user) return res.status(404).json({ error: 'ইউজার পাওয়া যায়নি।' });
 
   if (user.withdrawSetupDone) {
-    return res.status(400).json({ error: 'Withdraw setup is LOCKED and can only be performed once in lifetime' });
+    return res.status(400).json({ error: 'উইথড্র সেটআপ স্থায়ীভাবে লক করা এবং এটি শুধু একবারই পরিবর্তনযোগ্য।' });
   }
 
   // Withdraw Number unique globally rule: Same number cannot be used by another account
@@ -384,7 +405,7 @@ router.post('/wallet/withdraw-setup', authenticateUser, (req: Request, res: Resp
   );
   if (duplicateNumberUser) {
     return res.status(400).json({
-      error: 'This withdraw number is already registered by another EarnHub BD account. Withdraw numbers must be globally unique.',
+      error: 'এই উইথড্র নম্বরটি ইতিমধ্যে অন্য একটি অ্যাকাউন্টে ব্যবহার করা হয়েছে। প্রতিটি অ্যাকাউন্টের জন্য ভিন্ন উইথড্র নম্বর আবশ্যক।',
     });
   }
 
@@ -484,13 +505,13 @@ router.post('/tasks/complete', authenticateUser, (req: Request, res: Response) =
 
   // Strict 10-second check
   if (!watchDurationSeconds || watchDurationSeconds < 9.5) {
-    return res.status(400).json({ error: 'Video task must be watched for full 10-second countdown' });
+    return res.status(400).json({ error: 'পুরো ১০ সেকেন্ড ভিডিওটি দেখা আবশ্যক।' });
   }
 
   const store = getStore();
   const user = store.users.find(u => u.id === tokenUser.id);
   const wallet = store.wallets.find(w => w.userId === tokenUser.id);
-  if (!user || !wallet) return res.status(404).json({ error: 'User or wallet not found' });
+  if (!user || !wallet) return res.status(404).json({ error: 'ইউজার বা ওয়ালেট পাওয়া যায়নি।' });
 
   const todayStr = new Date().toISOString().split('T')[0];
   const pkg = store.packages.find(p => p.id === (user.activePackageId || 'pkg_trial')) || store.packages[0];
@@ -501,7 +522,7 @@ router.post('/tasks/complete', authenticateUser, (req: Request, res: Response) =
   );
 
   if (todayTasks.length >= pkg.videosPerDay) {
-    return res.status(400).json({ error: `Daily video limit reached (${pkg.videosPerDay} videos/day for ${pkg.name})` });
+    return res.status(400).json({ error: `আজকের দৈনিক ভিডিও টাস্কের সীমা পূর্ণ হয়েছে (${pkg.name} প্যাকেজে প্রতিদিন ${pkg.videosPerDay}টি ভিডিও)।` });
   }
 
   const reward = pkg.incomePerVideo;
@@ -509,7 +530,7 @@ router.post('/tasks/complete', authenticateUser, (req: Request, res: Response) =
   // Free trial limits: Daily income 25 TK, Max total 100 TK
   if (user.isTrial) {
     if (user.trialTotalEarned + reward > 100) {
-      return res.status(400).json({ error: 'Maximum free trial earning reached (100 TK limit)' });
+      return res.status(400).json({ error: 'ফ্রি ট্রায়ালের সর্বোচ্চ উপার্জনের সীমা (১০০ টাকা) পূর্ণ হয়েছে।' });
     }
     user.trialTotalEarned += reward;
     if (todayTasks.length === 0) {
@@ -676,31 +697,67 @@ router.post('/wallet/deposit', authenticateUser, (req: Request, res: Response) =
 
   const depositAmount = Number(amount);
   if (!depositAmount || depositAmount < 100 || depositAmount > 25000) {
-    return res.status(400).json({ error: 'Deposit amount must be between 100 TK and 25,000 TK' });
+    return res.status(400).json({ error: 'ডিপোজিট পরিমাণ ১০০ টাকা থেকে ২৫,০০০ টাকার মধ্যে হতে হবে।' });
   }
 
   if (!paymentMethod || (paymentMethod !== 'bKash' && paymentMethod !== 'Nagad')) {
-    return res.status(400).json({ error: 'Valid payment method (bKash or Nagad) is required' });
+    return res.status(400).json({ error: 'পেমেন্ট মেথড হিসেবে বিকাশ (bKash) অথবা নগদ (Nagad) নির্বাচন করা আবশ্যক।' });
   }
 
   if (!senderNumber || !isValidBdPhone(senderNumber)) {
-    return res.status(400).json({ error: 'Valid sender Bangladesh phone number is required' });
+    return res.status(400).json({ error: 'সঠিক প্রেরক (Sender) ১১ ডিজিটের মোবাইল নম্বর প্রদান করুন।' });
   }
 
   if (!transactionId || transactionId.trim().length < 6) {
-    return res.status(400).json({ error: 'Valid transaction ID is required (min 6 characters)' });
+    return res.status(400).json({ error: 'সঠিক ট্রানজেকশন আইডি (TrxID) প্রদান করুন (কমপক্ষে ৬ অক্ষর)।' });
   }
 
   const store = getStore();
   const user = store.users.find(u => u.id === tokenUser.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user) return res.status(404).json({ error: 'ইউজার পাওয়া যায়নি।' });
 
-  // Check duplicate TrxID
+  const normalizedTrx = transactionId.trim().toUpperCase();
+  const normalizedSender = normalizeBdPhone(senderNumber);
+
+  // PATCH 1 & 5: Check duplicate TrxID across all existing deposits and verified SMS
   const duplicateTrx = store.deposits.find(
-    d => d.transactionId.toUpperCase() === transactionId.trim().toUpperCase()
+    d => d.transactionId.toUpperCase() === normalizedTrx
   );
-  if (duplicateTrx) {
-    return res.status(400).json({ error: 'This Transaction ID has already been submitted' });
+  if (duplicateTrx || !isTrxUnique(normalizedTrx, paymentMethod)) {
+    logFraud({
+      type: 'duplicate_trx',
+      severity: 'high',
+      trxId: normalizedTrx,
+      userId: user.id,
+      userPhone: user.phone,
+      senderNumber: normalizedSender,
+      details: `Duplicate TrxID submitted: ${normalizedTrx}. Already registered on the platform.`,
+    });
+    return res.status(400).json({ error: 'এই ট্রানজেকশন আইডি (TrxID) ইতিপূর্বে প্ল্যাটফর্মে জমা বা ক্রেডিট করা হয়েছে।' });
+  }
+
+  // PATCH 5: Duplicate Deposit Protection (Pending with same Amount and Sender Number)
+  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+  const duplicatePending = store.deposits.find(
+    d =>
+      d.status === 'pending' &&
+      d.amount === depositAmount &&
+      normalizeBdPhone(d.senderNumber) === normalizedSender &&
+      new Date(d.createdAt).getTime() > tenMinutesAgo
+  );
+  if (duplicatePending) {
+    logFraud({
+      type: 'duplicate_deposit_spam',
+      severity: 'medium',
+      trxId: normalizedTrx,
+      userId: user.id,
+      userPhone: user.phone,
+      senderNumber: normalizedSender,
+      details: `Duplicate pending deposit rejected: same amount (৳${depositAmount}) and sender (${normalizedSender}) within 10 minutes.`,
+    });
+    return res.status(400).json({
+      error: 'একই পরিমাণ ও একই প্রেরক নম্বরের একটি ডিপোজিট রিকোয়েস্ট প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে ভেরিফিকেশন সম্পন্ন হওয়া পর্যন্ত অপেক্ষা করুন।',
+    });
   }
 
   const depositReq: DepositRequest = {
@@ -709,12 +766,12 @@ router.post('/wallet/deposit', authenticateUser, (req: Request, res: Response) =
     userPhone: user.phone,
     amount: depositAmount,
     paymentMethod,
-    assignedNumber: assignedNumber || '01712345678',
+    assignedNumber: assignedNumber || (paymentMethod === 'bKash' ? '01712345678' : '01823456789'),
     senderNumber: normalizeBdPhone(senderNumber),
     transactionId: transactionId.trim().toUpperCase(),
     screenshotUrl: screenshotUrl || '',
     status: 'pending',
-    verificationType: store.settings.hybridDepositVerificationEnabled ? 'hybrid' : 'manual',
+    verificationType: 'auto', // Default is auto-verification as mandated
     createdAt: new Date().toISOString(),
   };
 
@@ -728,12 +785,28 @@ router.post('/wallet/deposit', authenticateUser, (req: Request, res: Response) =
   store.deposits.push(depositReq);
   saveStore();
 
+  // ATTEMPT INSTANT AUTO-VERIFICATION
+  const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+  const outcome = attemptAutoVerification(depositReq, clientIp);
+
+  if (outcome.autoVerified) {
+    return res.json({
+      success: true,
+      autoVerified: true,
+      status: 'approved',
+      message: outcome.message,
+      deposit: depositReq,
+    });
+  }
+
   emitDepositStatusChanged(user.id, depositReq);
   emitAdminDashboardUpdated();
 
   return res.json({
     success: true,
-    message: 'Deposit request submitted successfully. Awaiting manual verification.',
+    autoVerified: false,
+    status: depositReq.status,
+    message: outcome.message || 'Deposit submitted. Waiting for incoming SMS from payment gateway.',
     deposit: depositReq,
   });
 });
@@ -760,6 +833,15 @@ router.get('/wallet/withdraw-history', authenticateUser, (req: Request, res: Res
   return res.json({ withdraws: history });
 });
 
+// Dynamic Withdraw Cards for Users
+router.get('/withdraw-cards', (req: Request, res: Response) => {
+  const store = getStore();
+  const cards = (store.withdrawCards || [])
+    .filter(c => c.enabled)
+    .sort((a, b) => a.order - b.order || a.amount - b.amount);
+  return res.json({ withdrawCards: cards });
+});
+
 // Request Withdraw
 router.post('/wallet/withdraw', authenticateUser, (req: Request, res: Response) => {
   const tokenUser = (req as any).user;
@@ -770,16 +852,16 @@ router.post('/wallet/withdraw', authenticateUser, (req: Request, res: Response) 
   const user = store.users.find(u => u.id === tokenUser.id);
   const wallet = store.wallets.find(w => w.userId === tokenUser.id);
 
-  if (!user || !wallet) return res.status(404).json({ error: 'User or wallet not found' });
+  if (!user || !wallet) return res.status(404).json({ error: 'ইউজার বা ওয়ালেট পাওয়া যায়নি।' });
 
   // Check withdraw setup done
   if (!user.withdrawSetupDone || !user.withdrawPasswordHash || !user.withdrawNumber || !user.withdrawMethod) {
-    return res.status(400).json({ error: 'You must setup your Withdraw Method and Withdraw Password first' });
+    return res.status(400).json({ error: 'প্রথমে আপনার উইথড্র মেথড এবং উইথড্র পাসওয়ার্ড সেটআপ সম্পন্ন করুন।' });
   }
 
   // Global withdraw disable check
   if (!store.settings.withdrawGloballyEnabled) {
-    return res.status(400).json({ error: 'Withdrawals are temporarily closed by administration for maintenance' });
+    return res.status(400).json({ error: 'সিস্টেম রক্ষণাবেক্ষণের জন্য উইথড্র সাময়িকভাবে বন্ধ আছে।' });
   }
 
   // Opening hours check
@@ -789,13 +871,13 @@ router.post('/wallet/withdraw', authenticateUser, (req: Request, res: Response) 
     currentHour >= store.settings.withdrawClosingHour
   ) {
     return res.status(400).json({
-      error: `Withdraw is open daily between ${store.settings.withdrawOpeningHour}:00 and ${store.settings.withdrawClosingHour}:00`,
+      error: `উইথড্র সেবা প্রতিদিন সকাল ${store.settings.withdrawOpeningHour}:00 থেকে সন্ধ্যা ${store.settings.withdrawClosingHour}:00 পর্যন্ত চালু থাকে।`,
     });
   }
 
   // Verify withdraw password
   if (!withdrawPassword || !bcrypt.compareSync(withdrawPassword, user.withdrawPasswordHash)) {
-    return res.status(400).json({ error: 'Invalid Withdraw Password' });
+    return res.status(400).json({ error: 'উইথড্র পাসওয়ার্ড সঠিক নয়।' });
   }
 
   // Daily one withdraw rule
@@ -804,7 +886,7 @@ router.post('/wallet/withdraw', authenticateUser, (req: Request, res: Response) 
     w => w.userId === user.id && w.createdAt.startsWith(todayStr) && w.status !== 'rejected'
   );
   if (userTodayWithdraws.length >= 1) {
-    return res.status(400).json({ error: 'Only one withdrawal request is permitted per calendar day' });
+    return res.status(400).json({ error: 'প্রতি ক্যালেন্ডার দিনে সর্বোচ্চ ১টি উইথড্র রিকোয়েস্ট অনুমোদিত।' });
   }
 
   // Free User Withdrawal Rule:
@@ -816,7 +898,7 @@ router.post('/wallet/withdraw', authenticateUser, (req: Request, res: Response) 
 
   if (isFreeUser && !isFreeWithdrawPermitted) {
     return res.status(403).json({
-      error: 'ফ্রি ইউজাররা টাকা উইথড্র করতে পারবেন না। টাকা উইথড্র করার অনুমতি পেতে অনুগ্রহ করে সাপোর্ট টিমে অথবা আপনার রেফারেল মেম্বারের সাথে যোগাযোগ করুন। অথবা ডিপোজিট করে যেকোনো প্যাকেজ ক্রয় করে কাজ করুন। (Free users cannot withdraw. Please contact support or contact your referral member to request withdrawal permission).',
+      error: 'আপনার নিয়োগ ব্যবস্থাপকের সঙ্গে যোগাযোগ করুন',
       freeWithdrawBlocked: true,
       contactSupport: true,
       contactReferral: true,
@@ -824,37 +906,33 @@ router.post('/wallet/withdraw', authenticateUser, (req: Request, res: Response) 
     });
   }
 
-  // LOCKED Withdraw Amount Cards rule:
-  // Paid User Minimum = 460 TK. Allowed Cards: 460, 1680, 5800, 16800, 49999, 150000.
-  // Free Trial User (when permission enabled): 100 TK card or standard cards
-  const allowedPaidCards = [460, 1680, 5800, 16800, 49999, 150000];
-  let isTrialWithdraw = false;
+  // Dynamic Withdraw Amount Cards check from Admin Managed Cards
+  const activeCards = (store.withdrawCards || []).filter(c => c.enabled);
+  const matchedCard = activeCards.find(c => c.amount === withdrawAmount);
 
+  if (!matchedCard) {
+    const availableAmounts = activeCards.map(c => `৳${c.amount}`).join(', ');
+    return res.status(400).json({
+      error: `অনুগ্রহ করে অনুমোদিত সক্রিয় উইথড্র কার্ড নির্বাচন করুন। সক্রিয় কার্ডসমূহ: ${availableAmounts || 'কোনো কার্ড সক্রিয় নেই'}।`,
+    });
+  }
+
+  let isTrialWithdraw = false;
   if (isFreeUser) {
-    if (withdrawAmount === 100) {
+    if (matchedCard.isTrialAllowed || withdrawAmount === 100) {
       isTrialWithdraw = true;
       const fp = deviceFingerprint || user.deviceFingerprint;
       const dfRecord = store.deviceFingerprints.find(d => d.deviceFingerprint === fp);
       if (dfRecord && dfRecord.trialWithdrawalCompleted) {
         return res.status(400).json({
-          error: 'Device Protection Alert: This device has already received a free trial withdrawal. Lifetime limit: 1 free trial withdrawal per device.',
+          error: 'ডিভাইস সুরক্ষা সতর্কতা: এই ডিভাইস থেকে ইতিমধ্যে ১টি ফ্রি ট্রায়াল উইথড্রল সম্পন্ন হয়েছে।',
         });
       }
-    } else if (!allowedPaidCards.includes(withdrawAmount)) {
-      return res.status(400).json({
-        error: 'Invalid withdrawal amount card selected. Please select 100 TK or an authorized card (460, 1680, 5800, 16800, 49999, 150000 TK).',
-      });
-    }
-  } else {
-    if (!allowedPaidCards.includes(withdrawAmount)) {
-      return res.status(400).json({
-        error: 'Invalid withdrawal amount card selected. Please select from 460, 1680, 5800, 16800, 49999, or 150000 TK.',
-      });
     }
   }
 
   if (wallet.balance < withdrawAmount) {
-    return res.status(400).json({ error: `Insufficient wallet balance. You have ${wallet.balance.toFixed(2)} TK` });
+    return res.status(400).json({ error: `আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই। বর্তমান ব্যালেন্স: ${wallet.balance.toFixed(2)} টাকা।` });
   }
 
   // Withdraw Fee = 10% (LOCKED)
@@ -947,17 +1025,17 @@ router.post('/packages/purchase', authenticateUser, (req: Request, res: Response
   const wallet = store.wallets.find(w => w.userId === tokenUser.id);
   const pkg = store.packages.find(p => p.id === packageId && p.enabled);
 
-  if (!user || !wallet) return res.status(404).json({ error: 'User or wallet not found' });
-  if (!pkg) return res.status(404).json({ error: 'Selected package is not available' });
+  if (!user || !wallet) return res.status(404).json({ error: 'ইউজার বা ওয়ালেট পাওয়া যায়নি।' });
+  if (!pkg) return res.status(404).json({ error: 'নির্বাচিত প্যাকেজটি বর্তমানে উপলব্ধ নেই।' });
 
   if (pkg.price <= 0) {
-    return res.status(400).json({ error: 'Invalid package purchase' });
+    return res.status(400).json({ error: 'ভুল প্যাকেজ নির্বাচন।' });
   }
 
   // Rule: Packages purchased ONLY using Wallet Balance!
   if (wallet.balance < pkg.price) {
     return res.status(400).json({
-      error: `Insufficient wallet balance. Package price is ${pkg.price.toLocaleString()} TK, but your current balance is ${wallet.balance.toLocaleString()} TK. Please deposit first.`,
+      error: `প্যাকেজ কেনার জন্য পর্যাপ্ত ওয়ালেট ব্যালেন্স নেই। প্যাকেজের মূল্য ৳${pkg.price.toLocaleString()} টাকা, আপনার বর্তমান ব্যালেন্স ৳${wallet.balance.toLocaleString()} টাকা। অনুগ্রহ করে প্রথমে ওয়ালেটে ডিপোজিট করুন।`,
     });
   }
 
@@ -1156,23 +1234,23 @@ router.post('/promotions/claim-code', authenticateUser, (req: Request, res: Resp
   const tokenUser = (req as any).user;
   const { code } = req.body;
 
-  if (!code) return res.status(400).json({ error: 'Promo code is required' });
+  if (!code) return res.status(400).json({ error: 'প্রমো কোড প্রদান করা আবশ্যক।' });
 
   const store = getStore();
   const user = store.users.find(u => u.id === tokenUser.id);
   const wallet = store.wallets.find(w => w.userId === tokenUser.id);
-  if (!user || !wallet) return res.status(404).json({ error: 'User or wallet not found' });
+  if (!user || !wallet) return res.status(404).json({ error: 'ইউজার বা ওয়ালেট পাওয়া যায়নি।' });
 
   const promo = store.promoCodes.find(
     p => p.code.toUpperCase() === code.trim().toUpperCase() && p.isActive
   );
 
   if (!promo) {
-    return res.status(400).json({ error: 'Invalid or expired promo code' });
+    return res.status(400).json({ error: 'প্রমো কোডটি সঠিক নয় অথবা এর মেয়াদ শেষ হয়ে গেছে।' });
   }
 
   if (promo.currentUsage >= promo.maxUsage) {
-    return res.status(400).json({ error: 'This promo code usage limit has been reached' });
+    return res.status(400).json({ error: 'এই প্রমো কোড ব্যবহারের সর্বোচ্চ সীমা শেষ হয়েছে।' });
   }
 
   // Check if user already claimed this promo
@@ -1180,7 +1258,7 @@ router.post('/promotions/claim-code', authenticateUser, (req: Request, res: Resp
     t => t.userId === user.id && t.type === 'promo_code' && t.referenceId === promo.id
   );
   if (alreadyClaimed) {
-    return res.status(400).json({ error: 'You have already claimed this promo code' });
+    return res.status(400).json({ error: 'আপনি ইতিমধ্যে এই প্রমো কোডটি গ্রহণ করেছেন।' });
   }
 
   promo.currentUsage += 1;
@@ -1468,6 +1546,35 @@ router.post('/admin/users/:id/action', authenticateAdmin, (req: Request, res: Re
   return res.json({ success: true, message: `Action ${action} executed successfully`, user, wallet });
 });
 
+// Explicit toggle for free withdraw permission for a single user
+router.post('/admin/users/:id/toggle-free-withdraw', authenticateAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const store = getStore();
+  const user = store.users.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  user.freeWithdrawAllowed = !user.freeWithdrawAllowed;
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: adminUser.id,
+    adminName: adminUser.name || 'Admin',
+    action: `Toggle Free Withdraw: ${user.freeWithdrawAllowed ? 'Allowed' : 'Disallowed'}`,
+    target: user.phone,
+    details: `Toggled free user withdraw permission for ${user.phone} to ${user.freeWithdrawAllowed}`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  emitAdminDashboardUpdated();
+
+  return res.json({
+    success: true,
+    message: `User ${user.phone} - Free withdraw permission ${user.freeWithdrawAllowed ? 'ENABLED' : 'DISABLED'}`,
+    freeWithdrawAllowed: user.freeWithdrawAllowed,
+  });
+});
+
 // 3. Deposit Manager: Approve, Reject, Manual Verify
 router.get('/admin/deposits', authenticateAdmin, (req: Request, res: Response) => {
   const store = getStore();
@@ -1500,9 +1607,33 @@ router.post('/admin/deposits/:id/review', authenticateAdmin, (req: Request, res:
   if (status === 'approved' && wallet) {
     // Deposit approval ONLY adds Wallet Balance!
     // NEVER activate package after deposit approval (LOCKED RULE)!
+    const balanceBefore = wallet.balance;
     wallet.balance += deposit.amount;
     wallet.totalDeposit += deposit.amount;
     wallet.updatedAt = new Date().toISOString();
+    const balanceAfter = wallet.balance;
+
+    recordWalletLedgerEntry({
+      userId: deposit.userId,
+      transactionType: 'Deposit Verification',
+      amount: deposit.amount,
+      balanceBefore,
+      balanceAfter,
+      reason: 'Deposit Verification (Manual Review Approved)',
+      referenceId: deposit.id,
+      createdBy: adminUser.name || 'Finance Admin',
+      status: 'completed',
+    });
+
+    recordFinancialAuditLog({
+      adminId: adminUser.id || 'admin',
+      userId: deposit.userId,
+      action: 'DEPOSIT_MANUAL_APPROVED',
+      oldBalance: balanceBefore,
+      newBalance: balanceAfter,
+      reference: `Deposit:${deposit.id}|TrxID:${deposit.transactionId}`,
+      ip: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1',
+    });
 
     store.transactions.push({
       id: `tx_${Date.now()}`,
@@ -1653,6 +1784,162 @@ router.post('/admin/withdraws/:id/action', authenticateAdmin, (req: Request, res
   emitAdminDashboardUpdated();
 
   return res.json({ success: true, withdraw });
+});
+
+// 4.1. Withdraw Cards Manager: CRUD (Create, Read, Edit, Delete, Toggle Active)
+router.get('/admin/withdraw-cards', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const cards = [...(store.withdrawCards || [])].sort((a, b) => a.order - b.order || a.amount - b.amount);
+  return res.json({ withdrawCards: cards });
+});
+
+router.post('/admin/withdraw-cards', authenticateAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const store = getStore();
+  const { amount, label, badge, badgeColor, minRole, isTrialAllowed, enabled, order, description } = req.body;
+
+  const cardAmount = Number(amount);
+  if (!cardAmount || cardAmount <= 0) {
+    return res.status(400).json({ error: 'সঠিক পজিটিভ উইথড্র পরিমাণ (TK) প্রদান করুন।' });
+  }
+
+  // Check if card with same amount exists
+  const existing = store.withdrawCards?.find(c => c.amount === cardAmount);
+  if (existing) {
+    return res.status(400).json({ error: `৳${cardAmount} টাকার উইথড্র কার্ড ইতিপূর্বে তৈরি করা রয়েছে (ID: ${existing.id})।` });
+  }
+
+  const newCard: WithdrawCard = {
+    id: `wcard_${Date.now()}`,
+    amount: cardAmount,
+    label: label || `৳${cardAmount} পেআউট কার্ড`,
+    badge: badge || (cardAmount >= 10000 ? 'VIP ONLY' : cardAmount >= 5000 ? 'POPULAR' : 'INSTANT'),
+    badgeColor: badgeColor || (cardAmount >= 10000 ? 'amber' : cardAmount >= 5000 ? 'purple' : 'emerald'),
+    minRole: minRole || 'Member',
+    isTrialAllowed: isTrialAllowed !== undefined ? Boolean(isTrialAllowed) : (cardAmount === 100),
+    enabled: enabled !== undefined ? Boolean(enabled) : true,
+    order: Number(order) || (store.withdrawCards ? store.withdrawCards.length + 1 : 1),
+    description: description || `ব্যবহারকারীদের জন্য ৳${cardAmount} টাকা উইথড্র কার্ড`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!store.withdrawCards) {
+    store.withdrawCards = [];
+  }
+  store.withdrawCards.push(newCard);
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: adminUser.id,
+    adminName: adminUser.name || 'Admin',
+    action: 'Create Withdraw Card',
+    target: `৳${cardAmount}`,
+    details: `Created new withdraw card of ৳${cardAmount} (Label: ${newCard.label})`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  emitAdminDashboardUpdated();
+
+  return res.json({ success: true, message: `৳${cardAmount} টাকার নতুন উইথড্র কার্ড সফলভাবে তৈরি হয়েছে।`, withdrawCard: newCard });
+});
+
+router.put('/admin/withdraw-cards/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const store = getStore();
+  const card = store.withdrawCards?.find(c => c.id === req.params.id);
+  if (!card) return res.status(404).json({ error: 'উইথড্র কার্ড পাওয়া যায়নি।' });
+
+  const { amount, label, badge, badgeColor, minRole, isTrialAllowed, enabled, order, description } = req.body;
+
+  if (amount !== undefined) {
+    const newAmt = Number(amount);
+    if (!newAmt || newAmt <= 0) {
+      return res.status(400).json({ error: 'সঠিক পজিটিভ উইথড্র পরিমাণ (TK) প্রদান করুন।' });
+    }
+    // Check duplicate amount on other cards
+    const duplicate = store.withdrawCards?.find(c => c.amount === newAmt && c.id !== card.id);
+    if (duplicate) {
+      return res.status(400).json({ error: `৳${newAmt} টাকার অন্য একটি উইথড্র কার্ড রয়েছে।` });
+    }
+    card.amount = newAmt;
+  }
+
+  if (label !== undefined) card.label = label;
+  if (badge !== undefined) card.badge = badge;
+  if (badgeColor !== undefined) card.badgeColor = badgeColor;
+  if (minRole !== undefined) card.minRole = minRole;
+  if (isTrialAllowed !== undefined) card.isTrialAllowed = Boolean(isTrialAllowed);
+  if (enabled !== undefined) card.enabled = Boolean(enabled);
+  if (order !== undefined) card.order = Number(order);
+  if (description !== undefined) card.description = description;
+  card.updatedAt = new Date().toISOString();
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: adminUser.id,
+    adminName: adminUser.name || 'Admin',
+    action: 'Update Withdraw Card',
+    target: `৳${card.amount}`,
+    details: `Updated withdraw card #${card.id} (Amount: ৳${card.amount}, Label: ${card.label})`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  emitAdminDashboardUpdated();
+
+  return res.json({ success: true, message: `উইথড্র কার্ড সফলভাবে আপডেট করা হয়েছে।`, withdrawCard: card });
+});
+
+router.delete('/admin/withdraw-cards/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const store = getStore();
+  const index = (store.withdrawCards || []).findIndex(c => c.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'উইথড্র কার্ড পাওয়া যায়নি।' });
+
+  const deleted = store.withdrawCards[index];
+  store.withdrawCards.splice(index, 1);
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: adminUser.id,
+    adminName: adminUser.name || 'Admin',
+    action: 'Delete Withdraw Card',
+    target: `৳${deleted.amount}`,
+    details: `Deleted withdraw card #${deleted.id} of ৳${deleted.amount}`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  emitAdminDashboardUpdated();
+
+  return res.json({ success: true, message: `৳${deleted.amount} টাকার উইথড্র কার্ড ডিলিট করা হয়েছে।` });
+});
+
+router.post('/admin/withdraw-cards/:id/toggle', authenticateAdmin, (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const store = getStore();
+  const card = store.withdrawCards?.find(c => c.id === req.params.id);
+  if (!card) return res.status(404).json({ error: 'উইথড্র কার্ড পাওয়া যায়নি।' });
+
+  card.enabled = !card.enabled;
+  card.updatedAt = new Date().toISOString();
+
+  store.activityLogs.push({
+    id: `log_${Date.now()}`,
+    adminId: adminUser.id,
+    adminName: adminUser.name || 'Admin',
+    action: `Toggle Withdraw Card: ${card.enabled ? 'Enabled' : 'Disabled'}`,
+    target: `৳${card.amount}`,
+    details: `Toggled withdraw card #${card.id} to ${card.enabled ? 'Active' : 'Inactive'}`,
+    timestamp: new Date().toISOString(),
+  });
+
+  saveStore();
+  emitAdminDashboardUpdated();
+
+  return res.json({ success: true, message: `উইথড্র কার্ডটি ${card.enabled ? 'সক্রিয় (Active)' : 'নিষ্ক্রিয় (Inactive)'} করা হয়েছে।`, withdrawCard: card });
 });
 
 // 5. Package Manager: CRUD, Create, Edit, Delete & Toggle
@@ -2884,7 +3171,7 @@ router.get('/sliders/public', (req: Request, res: Response) => {
 });
 
 router.post('/admin/sliders', authenticateAdmin, (req: Request, res: Response) => {
-  const { title, subtitle, imageUrl, buttonText, buttonLink, status, sortOrder, startDate, endDate } = req.body;
+  const { title, subtitle, tag, imageUrl, buttonText, buttonLink, status, sortOrder, startDate, endDate } = req.body;
   if (!title || !imageUrl) {
     return res.status(400).json({ error: 'Slider title and image URL are required' });
   }
@@ -2894,6 +3181,7 @@ router.post('/admin/sliders', authenticateAdmin, (req: Request, res: Response) =
     id: `slide_${Date.now()}`,
     title: title.trim(),
     subtitle: subtitle || '',
+    tag: tag || '',
     imageUrl,
     buttonText: buttonText || 'Learn More',
     buttonLink: buttonLink || '/',
@@ -2916,9 +3204,10 @@ router.post('/admin/sliders/:id/update', authenticateAdmin, (req: Request, res: 
   const slider = (store.sliders || []).find(s => s.id === req.params.id);
   if (!slider) return res.status(404).json({ error: 'Slider not found' });
 
-  const { title, subtitle, imageUrl, buttonText, buttonLink, status, sortOrder, startDate, endDate } = req.body;
+  const { title, subtitle, tag, imageUrl, buttonText, buttonLink, status, sortOrder, startDate, endDate } = req.body;
   if (title !== undefined) slider.title = title.trim();
   if (subtitle !== undefined) slider.subtitle = subtitle;
+  if (tag !== undefined) slider.tag = tag;
   if (imageUrl !== undefined) slider.imageUrl = imageUrl;
   if (buttonText !== undefined) slider.buttonText = buttonText;
   if (buttonLink !== undefined) slider.buttonLink = buttonLink;
@@ -3161,6 +3450,669 @@ router.post('/admin/broadcast', authenticateAdmin, (req: Request, res: Response)
 
   saveStore();
   return res.json({ success: true, recipientCount, message: `Broadcast successfully dispatched to ${recipientCount} users.` });
+});
+
+// ==========================================
+// MFS AUTOMATION & ANDROID VERIFY APP ROUTES
+// ==========================================
+
+// Middleware for Device Authentication
+function authenticateDevice(req: Request, res: Response, next: () => void) {
+  const authHeader = req.headers.authorization;
+  const token =
+    authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : (req.query.token as string) || (req.body && req.body.deviceToken);
+
+  const store = getStore();
+  const settings = store.mfsSettings || getDefaultMfsSettings();
+
+  if (!token) {
+    return res.status(401).json({ error: 'Device authorization token required' });
+  }
+
+  // Master device token match
+  if (token === settings.deviceSecretToken) {
+    return next();
+  }
+
+  // Specific device token match
+  const device = store.verifyDevices?.find((d) => d.deviceToken === token && !d.isBanned);
+  if (device) {
+    (req as any).verifyDevice = device;
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Invalid or banned device token' });
+}
+
+// 1. Android SMS Forwarder Gateway: Sync incoming SMS
+router.post('/admin/sms/sync', authenticateDevice, (req: Request, res: Response) => {
+  const store = getStore();
+  const {
+    deviceId,
+    paymentMethod,
+    trxId,
+    amount,
+    senderNumber,
+    balanceAfter,
+    smsTime,
+    rawSms,
+  } = req.body;
+
+  let finalMethod = paymentMethod;
+  let finalTrx = trxId;
+  let finalAmount = Number(amount);
+  let finalSender = senderNumber;
+  let finalBalance = balanceAfter;
+  let finalTime = smsTime;
+
+  // Auto-parse if raw SMS is sent and fields are missing
+  if (rawSms && (!finalTrx || !finalAmount || !finalMethod)) {
+    const parsed = parseMfsSms(rawSms);
+    if (parsed.isValid) {
+      finalMethod = parsed.method;
+      finalTrx = parsed.trxId;
+      finalAmount = parsed.amount || 0;
+      finalSender = parsed.senderNumber || finalSender;
+      finalBalance = parsed.balanceAfter || finalBalance;
+      finalTime = parsed.smsTime || finalTime;
+    }
+  }
+
+  if (!finalTrx || !finalAmount || !finalMethod) {
+    return res.status(400).json({
+      error: 'Missing required SMS fields: trxId, amount, and paymentMethod are required',
+    });
+  }
+
+  const normalizedTrx = finalTrx.trim().toUpperCase();
+
+  // Check for duplicate SMS in store
+  const existing = store.smsTransactions.find((s) => s.trxId.toUpperCase() === normalizedTrx);
+  if (existing) {
+    return res.json({
+      success: true,
+      message: 'SMS already received and indexed',
+      duplicate: true,
+      sms: existing,
+    });
+  }
+
+  const newSms: SmsTransaction = {
+    id: `sms_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    trxId: normalizedTrx,
+    method: finalMethod === 'Nagad' ? 'Nagad' : 'bKash',
+    amount: finalAmount,
+    senderNumber: cleanBdPhone(finalSender || ''),
+    balanceAfter: finalBalance || '',
+    smsTime: finalTime || new Date().toISOString(),
+    rawSms: rawSms || `Received Tk ${finalAmount} from ${finalSender}. TrxID ${normalizedTrx}`,
+    deviceId: deviceId || 'android_app',
+    verified: false,
+    used: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  store.smsTransactions.unshift(newSms);
+
+  // Update device stats
+  if (deviceId) {
+    const dev = store.verifyDevices.find((d) => d.deviceId === deviceId);
+    if (dev) {
+      dev.lastSyncAt = new Date().toISOString();
+      dev.totalSmsForwarded += 1;
+      dev.status = 'online';
+    }
+  }
+
+  saveStore();
+
+  // Instant Check: Are there any pending deposit requests waiting for this TrxID?
+  checkPendingDepositsForIncomingSms(newSms);
+
+  return res.json({
+    success: true,
+    message: 'SMS transaction synced and processed successfully',
+    sms: newSms,
+  });
+});
+
+// 2. Android Verify App Heartbeat (30-second ping)
+router.post('/admin/verify-app/heartbeat', authenticateDevice, (req: Request, res: Response) => {
+  const store = getStore();
+  const { deviceId, batteryPercent, networkType, phoneNumber, appVersion } = req.body;
+
+  if (!deviceId) {
+    return res.status(400).json({ error: 'deviceId is required' });
+  }
+
+  let device = store.verifyDevices.find((d) => d.deviceId === deviceId);
+  if (!device) {
+    device = {
+      id: `dev_${Date.now()}`,
+      deviceId,
+      deviceName: 'Android SMS Gateway',
+      phoneNumber: phoneNumber || '01712345678',
+      deviceToken: (req.headers.authorization || '').replace('Bearer ', '').trim(),
+      batteryPercent: batteryPercent ?? 100,
+      networkType: networkType || 'WiFi',
+      status: 'online',
+      lastSyncAt: new Date().toISOString(),
+      lastHeartbeatAt: new Date().toISOString(),
+      totalSmsForwarded: 0,
+      appVersion: appVersion || '2.0.4',
+      isBanned: false,
+    };
+    store.verifyDevices.push(device);
+  } else {
+    if (batteryPercent !== undefined) device.batteryPercent = batteryPercent;
+    if (networkType) device.networkType = networkType;
+    if (phoneNumber) device.phoneNumber = phoneNumber;
+    if (appVersion) device.appVersion = appVersion;
+    device.status = 'online';
+    device.lastHeartbeatAt = new Date().toISOString();
+  }
+
+  saveStore();
+  return res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    status: 'online',
+  });
+});
+
+// 3. Get Connected Android Verify Devices
+router.get('/admin/verify-app/devices', (req: Request, res: Response) => {
+  const store = getStore();
+  const now = Date.now();
+
+  // Evaluate online/offline status: offline if heartbeat > 90 seconds ago
+  const updatedDevices = (store.verifyDevices || []).map((d) => {
+    const lastHb = new Date(d.lastHeartbeatAt).getTime();
+    const isOffline = now - lastHb > 90000;
+    return {
+      ...d,
+      status: d.isBanned ? 'offline' : isOffline ? 'offline' : 'online',
+    };
+  });
+
+  return res.json({ devices: updatedDevices });
+});
+
+// 4. Ban / Unban Device
+router.post('/admin/verify-app/devices/:id/ban', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const device = store.verifyDevices.find((d) => d.id === req.params.id);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  device.isBanned = !device.isBanned;
+  saveStore();
+  return res.json({ success: true, device });
+});
+
+// 5. MFS Settings: Get Settings
+router.get('/admin/mfs/settings', (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ settings: store.mfsSettings || getDefaultMfsSettings() });
+});
+
+// 6. MFS Settings: Update Settings
+router.post('/admin/mfs/settings', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  if (!store.mfsSettings) store.mfsSettings = getDefaultMfsSettings();
+
+  const {
+    autoVerificationEnabled,
+    manualVerificationEnabled,
+    fallbackManualReview,
+    verificationTimeoutMinutes,
+    allowedSmsAgeHours,
+    enableDeviceSync,
+    deviceSecretToken,
+    apkDownloadUrl,
+    latestApkVersion,
+    forceUpdateApk,
+  } = req.body;
+
+  if (autoVerificationEnabled !== undefined) store.mfsSettings.autoVerificationEnabled = Boolean(autoVerificationEnabled);
+  if (manualVerificationEnabled !== undefined) store.mfsSettings.manualVerificationEnabled = Boolean(manualVerificationEnabled);
+  if (fallbackManualReview !== undefined) store.mfsSettings.fallbackManualReview = Boolean(fallbackManualReview);
+  if (verificationTimeoutMinutes !== undefined) store.mfsSettings.verificationTimeoutMinutes = Number(verificationTimeoutMinutes);
+  if (allowedSmsAgeHours !== undefined) store.mfsSettings.allowedSmsAgeHours = Number(allowedSmsAgeHours);
+  if (enableDeviceSync !== undefined) store.mfsSettings.enableDeviceSync = Boolean(enableDeviceSync);
+  if (deviceSecretToken) store.mfsSettings.deviceSecretToken = String(deviceSecretToken).trim();
+  if (apkDownloadUrl) store.mfsSettings.apkDownloadUrl = String(apkDownloadUrl).trim();
+  if (latestApkVersion) store.mfsSettings.latestApkVersion = String(latestApkVersion).trim();
+  if (forceUpdateApk !== undefined) store.mfsSettings.forceUpdateApk = Boolean(forceUpdateApk);
+
+  saveStore();
+  return res.json({ success: true, settings: store.mfsSettings });
+});
+
+// 7. Get All Synced SMS Transactions
+router.get('/admin/sms/transactions', (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ transactions: store.smsTransactions || [] });
+});
+
+// 8. SMS Gateway Simulator (Allows Admin to test incoming SMS parsing and auto-verification)
+router.post('/admin/sms/simulate', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { rawSms, method, amount, trxId, senderNumber } = req.body;
+
+  let finalMethod = method;
+  let finalTrx = trxId;
+  let finalAmount = Number(amount);
+  let finalSender = senderNumber;
+  let finalBalance = '5,000.00';
+  let finalTime = new Date().toISOString();
+
+  let parsed: any = null;
+  if (rawSms) {
+    parsed = parseMfsSms(rawSms);
+    if (parsed.isValid) {
+      finalMethod = parsed.method;
+      finalTrx = parsed.trxId;
+      finalAmount = parsed.amount || 0;
+      finalSender = parsed.senderNumber || finalSender;
+      finalBalance = parsed.balanceAfter || finalBalance;
+      finalTime = parsed.smsTime || finalTime;
+    } else if (!finalTrx || !finalAmount) {
+      return res.status(400).json({
+        error: parsed.error || 'Failed to parse SMS. Please provide valid bKash or Nagad SMS content.',
+      });
+    }
+  }
+
+  if (!finalTrx || !finalAmount || !finalMethod) {
+    return res.status(400).json({ error: 'trxId, amount, and payment method are required.' });
+  }
+
+  const normalizedTrx = finalTrx.trim().toUpperCase();
+
+  const newSms: SmsTransaction = {
+    id: `sms_${Date.now()}_sim`,
+    trxId: normalizedTrx,
+    method: finalMethod === 'Nagad' ? 'Nagad' : 'bKash',
+    amount: finalAmount,
+    senderNumber: cleanBdPhone(finalSender || '01711111111'),
+    balanceAfter: finalBalance,
+    smsTime: finalTime,
+    rawSms: rawSms || `You have received Tk ${finalAmount} from ${finalSender}. TrxID ${normalizedTrx}`,
+    deviceId: 'admin_sms_simulator',
+    verified: false,
+    used: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  store.smsTransactions.unshift(newSms);
+  saveStore();
+
+  // Trigger check for any pending deposit waiting for this TrxID
+  checkPendingDepositsForIncomingSms(newSms);
+
+  return res.json({
+    success: true,
+    message: 'SMS simulated successfully. Parsed and processed through auto-verification pipeline.',
+    parsed,
+    sms: newSms,
+  });
+});
+
+// 9. Get Verification Logs & Fraud Alerts
+router.get('/admin/mfs/logs', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({
+    verificationLogs: store.verificationLogs || [],
+    fraudLogs: store.fraudLogs || [],
+  });
+});
+
+// 10. Fraud Action (Resolve, Mark Fraud, Ban)
+router.post('/admin/mfs/fraud-action', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { logId, action } = req.body;
+
+  const log = store.fraudLogs?.find((l) => l.id === logId);
+  if (log) {
+    log.resolved = true;
+  }
+
+  if (action === 'ban_user' && log && log.userId) {
+    const user = store.users.find((u) => u.id === log.userId);
+    if (user) {
+      user.status = 'suspended';
+    }
+  }
+
+  if (action === 'ban_device' && log && log.deviceId) {
+    const dev = store.verifyDevices.find((d) => d.deviceId === log.deviceId);
+    if (dev) {
+      dev.isBanned = true;
+    }
+  }
+
+  saveStore();
+  return res.json({ success: true, message: `Fraud action '${action}' applied successfully.` });
+});
+
+// 11. Payment Numbers Management (Unlimited Pool)
+router.get('/admin/mfs/numbers', (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ numbers: store.paymentNumbers || [] });
+});
+
+router.post('/admin/mfs/numbers', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { method, number, accountType, dailyLimit } = req.body;
+
+  if (!method || !number) {
+    return res.status(400).json({ error: 'Method and number are required' });
+  }
+
+  const cleanNum = cleanBdPhone(number);
+  const newNum: PaymentNumber = {
+    id: `pn_${Date.now()}`,
+    method: method === 'Nagad' ? 'Nagad' : 'bKash',
+    number: cleanNum,
+    accountType: accountType || 'Personal',
+    isActive: true,
+    usageCount: 0,
+    dailyLimit: Number(dailyLimit) || 50000,
+    currentDailyVolume: 0,
+  };
+
+  store.paymentNumbers.push(newNum);
+  saveStore();
+  return res.json({ success: true, number: newNum });
+});
+
+router.post('/admin/mfs/numbers/:id/toggle', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const num = store.paymentNumbers.find((p) => p.id === req.params.id);
+  if (!num) return res.status(404).json({ error: 'Number not found' });
+  num.isActive = !num.isActive;
+  saveStore();
+  return res.json({ success: true, number: num });
+});
+
+router.delete('/admin/mfs/numbers/:id', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const idx = store.paymentNumbers.findIndex((p) => p.id === req.params.id);
+  if (idx !== -1) {
+    store.paymentNumbers.splice(idx, 1);
+    saveStore();
+  }
+  return res.json({ success: true, message: 'Number deleted from pool' });
+});
+
+// 12. Upload / Update APK Metadata (Legacy & Enhanced)
+router.post('/admin/mfs/upload-apk', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { version, downloadUrl, forceUpdate, releaseNotes, fileSize } = req.body;
+
+  if (!store.mfsSettings) store.mfsSettings = getDefaultMfsSettings();
+  if (version) store.mfsSettings.latestApkVersion = version;
+  if (downloadUrl) store.mfsSettings.apkDownloadUrl = downloadUrl;
+  if (forceUpdate !== undefined) store.mfsSettings.forceUpdateApk = forceUpdate;
+
+  if (version) {
+    if (!store.apkVersions) store.apkVersions = [];
+    store.apkVersions.forEach(v => { v.isCurrent = false; });
+    store.apkVersions.unshift({
+      id: `apk_${Date.now()}`,
+      version,
+      releaseNotes: releaseNotes || 'Official APK release with automated MFS background syncing.',
+      fileSize: fileSize || '1.8 MB',
+      downloadUrl: downloadUrl || '/downloads/EarnHubVerify.apk',
+      downloadCount: 0,
+      isCurrent: true,
+      minSupportedVersion: '2.0.0',
+      forceUpdate: Boolean(forceUpdate),
+      releasedAt: new Date().toISOString(),
+      uploadedBy: (req as any).admin?.name || 'Administrator',
+    });
+  }
+
+  saveStore();
+  return res.json({ success: true, settings: store.mfsSettings });
+});
+
+// ==========================================
+// PATCH 7 — SMS QUEUE MANAGEMENT
+// ==========================================
+router.post('/admin/sms/retry-queue', authenticateAdmin, (req: Request, res: Response) => {
+  const retriedCount = retryFailedSmsQueue();
+  return res.json({
+    success: true,
+    retriedCount,
+    message: `Processed ${retriedCount} queued SMS entries.`,
+  });
+});
+
+router.get('/admin/sms/queue', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const queueItems = (store.smsTransactions || []).map(s => ({
+    id: s.id,
+    trxId: s.trxId,
+    method: s.method,
+    amount: s.amount,
+    senderNumber: s.senderNumber,
+    queueStatus: s.queueStatus || (s.used ? 'Used' : s.verified ? 'Verified' : 'Synced'),
+    retryCount: s.retryCount || 0,
+    deviceId: s.deviceId,
+    createdAt: s.createdAt,
+    usedByUser: s.usedByUser,
+  }));
+  return res.json({ queue: queueItems });
+});
+
+// ==========================================
+// PATCH 10 — FRAUD DASHBOARD API (/admin/fraud)
+// Widgets:
+// 1. Duplicate Transaction IDs
+// 2. Failed Auto-Verifications
+// 3. Duplicate Sender Numbers
+// 4. Suspicious Android Devices
+// 5. Blocked Transactions
+// 6. Blocked Android Devices
+// Search & Filter: Search by Phone or TrxID
+// Actions: Resolve, Ban User, Ban Device, Block Sender
+// ==========================================
+router.get('/admin/fraud/dashboard', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const now = Date.now();
+
+  const fraudLogs = store.fraudLogs || [];
+  const verificationLogs = store.verificationLogs || [];
+  const devices = store.verifyDevices || [];
+
+  // 1. Duplicate Transaction IDs
+  const duplicateTrxLogs = fraudLogs.filter(f => f.type === 'duplicate_trx' || f.type === 'reused_trx');
+
+  // 2. Failed Auto-Verifications
+  const failedVerifications = verificationLogs.filter(v => (v.status as string) === 'fraud_mismatch' || (v.status as string) === 'fraud_duplicate' || (v.status as string) === 'manual_rejected');
+
+  // 3. Duplicate Sender Numbers
+  const duplicateSenderLogs = fraudLogs.filter(f => f.type === 'suspicious_sender_sharing' || f.type === 'wrong_sender');
+
+  // 4. Suspicious Android Devices (offline > 90s, high failure rates, or unregistered)
+  const suspiciousDevices = devices.filter(d => {
+    const lastHb = d.lastHeartbeatAt ? new Date(d.lastHeartbeatAt).getTime() : 0;
+    const isOffline = now - lastHb > 90000;
+    return d.isBanned || isOffline;
+  });
+
+  // 5. Blocked Transactions
+  const blockedTransactions = store.deposits.filter(d => d.status === 'rejected');
+
+  // 6. Blocked Android Devices
+  const blockedDevices = devices.filter(d => d.isBanned);
+
+  return res.json({
+    metrics: {
+      duplicateTrxCount: duplicateTrxLogs.length,
+      failedVerificationsCount: failedVerifications.length,
+      duplicateSendersCount: duplicateSenderLogs.length,
+      suspiciousDevicesCount: suspiciousDevices.length,
+      blockedTransactionsCount: blockedTransactions.length,
+      blockedDevicesCount: blockedDevices.length,
+    },
+    duplicateTrx: duplicateTrxLogs.slice(0, 50),
+    failedVerifications: failedVerifications.slice(0, 50),
+    duplicateSenders: duplicateSenderLogs.slice(0, 50),
+    suspiciousDevices,
+    blockedTransactions: blockedTransactions.slice(0, 50),
+    blockedDevices,
+    allFraudLogs: fraudLogs.slice(0, 100),
+    allVerificationLogs: verificationLogs.slice(0, 100),
+  });
+});
+
+router.post('/admin/fraud/action', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { logId, action, targetId } = req.body;
+
+  if (logId) {
+    const log = store.fraudLogs?.find(f => f.id === logId);
+    if (log) {
+      log.resolved = true;
+    }
+  }
+
+  let actionMessage = 'Fraud alert updated.';
+
+  if (action === 'ban_user' && targetId) {
+    const user = store.users.find(u => u.id === targetId || u.phone === targetId);
+    if (user) {
+      user.status = 'suspended';
+      actionMessage = `User ${user.phone} (${user.id}) has been suspended.`;
+    }
+  } else if (action === 'ban_device' && targetId) {
+    const dev = store.verifyDevices.find(d => d.deviceId === targetId || d.id === targetId);
+    if (dev) {
+      dev.isBanned = true;
+      dev.status = 'offline';
+      actionMessage = `Device ${dev.deviceId} has been blocked from forwarding SMS.`;
+    }
+  } else if (action === 'unban_device' && targetId) {
+    const dev = store.verifyDevices.find(d => d.deviceId === targetId || d.id === targetId);
+    if (dev) {
+      dev.isBanned = false;
+      dev.status = 'online';
+      actionMessage = `Device ${dev.deviceId} has been unbanned.`;
+    }
+  } else if (action === 'resolve_all') {
+    (store.fraudLogs || []).forEach(f => { f.resolved = true; });
+    actionMessage = 'All fraud alerts marked as resolved.';
+  }
+
+  saveStore();
+  return res.json({ success: true, message: actionMessage });
+});
+
+// ==========================================
+// PATCH 11 & 12 — APK VERSION MANAGER
+// ==========================================
+router.get('/admin/apk/versions', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({
+    versions: store.apkVersions || [],
+    currentSettings: store.mfsSettings || getDefaultMfsSettings(),
+  });
+});
+
+router.post('/admin/apk/upload', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { version, releaseNotes, fileSize, downloadUrl, forceUpdate, minSupportedVersion } = req.body;
+
+  if (!version) {
+    return res.status(400).json({ error: 'Version number is required (e.g. 2.0.5)' });
+  }
+
+  if (!store.apkVersions) store.apkVersions = [];
+  store.apkVersions.forEach(v => { v.isCurrent = false; });
+
+  const newVersion: ApkVersionRecord = {
+    id: `apk_v${version.replace(/\./g, '')}_${Date.now()}`,
+    version,
+    releaseNotes: releaseNotes || 'EarnHub Verify APK update with enhanced telemetry and offline retry.',
+    fileSize: fileSize || '1.8 MB',
+    downloadUrl: downloadUrl || '/downloads/EarnHubVerify.apk',
+    downloadCount: 0,
+    isCurrent: true,
+    minSupportedVersion: minSupportedVersion || '2.0.0',
+    forceUpdate: Boolean(forceUpdate),
+    releasedAt: new Date().toISOString(),
+    uploadedBy: (req as any).admin?.name || 'Administrator',
+  };
+
+  store.apkVersions.unshift(newVersion);
+
+  if (!store.mfsSettings) store.mfsSettings = getDefaultMfsSettings();
+  store.mfsSettings.latestApkVersion = version;
+  store.mfsSettings.apkDownloadUrl = newVersion.downloadUrl;
+  store.mfsSettings.forceUpdateApk = Boolean(forceUpdate);
+
+  saveStore();
+  return res.json({ success: true, version: newVersion, settings: store.mfsSettings });
+});
+
+router.post('/admin/apk/toggle-force-update', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { forceUpdate } = req.body;
+
+  if (!store.mfsSettings) store.mfsSettings = getDefaultMfsSettings();
+  store.mfsSettings.forceUpdateApk = Boolean(forceUpdate);
+
+  if (store.apkVersions && store.apkVersions[0]) {
+    store.apkVersions[0].forceUpdate = Boolean(forceUpdate);
+  }
+
+  saveStore();
+  return res.json({ success: true, forceUpdate: store.mfsSettings.forceUpdateApk });
+});
+
+// Public APK version checker for Android clients
+router.get('/api/apk/latest', (req: Request, res: Response) => {
+  const store = getStore();
+  const settings = store.mfsSettings || getDefaultMfsSettings();
+  const currentRecord = store.apkVersions?.find(v => v.isCurrent) || store.apkVersions?.[0];
+
+  return res.json({
+    latestVersion: settings.latestApkVersion || '2.0.4',
+    downloadUrl: settings.apkDownloadUrl || '/downloads/EarnHubVerify.apk',
+    forceUpdate: settings.forceUpdateApk || false,
+    fileSize: currentRecord?.fileSize || '1.8 MB',
+    releaseNotes: currentRecord?.releaseNotes || 'EarnHub Verify V20 official native release.',
+  });
+});
+
+// ==========================================
+// PATCH 13 — FINANCIAL AUDIT LOGS & WALLET LEDGER
+// ==========================================
+router.get('/admin/financial/audit-logs', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  return res.json({ auditLogs: store.auditLogs || [] });
+});
+
+router.get('/admin/financial/ledger', authenticateAdmin, (req: Request, res: Response) => {
+  const store = getStore();
+  const { userId, type } = req.query;
+  let ledger = store.walletTransactions || [];
+
+  if (userId) {
+    ledger = ledger.filter(l => l.userId === userId);
+  }
+  if (type) {
+    ledger = ledger.filter(l => l.transactionType.toLowerCase() === (type as string).toLowerCase());
+  }
+
+  return res.json({ ledger: ledger.slice(0, 200) });
 });
 
 export default router;

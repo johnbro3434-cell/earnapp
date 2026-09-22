@@ -27,7 +27,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest, getDeviceFingerprint } from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
-import { DepositRequest, WithdrawRequest, Transaction, PaymentNumber } from '../../types';
+import { DepositRequest, WithdrawRequest, Transaction, PaymentNumber, WithdrawCard } from '../../types';
 import { ImageUploadInput } from '../common/ImageUploadInput';
 
 interface WalletViewProps {
@@ -61,8 +61,8 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
   const [copiedAssigned, setCopiedAssigned] = useState(false);
 
   // Withdraw Form State
-  // LOCKED CARDS: 460, 1680, 5800, 16800, 49999, 150000 (and 100 for trial)
   const [selectedWithdrawCard, setSelectedWithdrawCard] = useState<number>(user?.isTrial ? 100 : 460);
+  const [dynamicWithdrawCards, setDynamicWithdrawCards] = useState<WithdrawCard[]>([]);
   const [withdrawPassword, setWithdrawPassword] = useState('');
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
 
@@ -89,8 +89,31 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
       })
       .catch((e) => console.warn(e));
 
+    // Load dynamic withdraw denomination cards
+    apiRequest('/api/withdraw-cards')
+      .then((res) => {
+        if (res && res.withdrawCards && res.withdrawCards.length > 0) {
+          setDynamicWithdrawCards(res.withdrawCards);
+          const activeList = res.withdrawCards;
+          if (user?.isTrial) {
+            const trialCard = activeList.find((c: WithdrawCard) => c.isTrialAllowed || c.amount === 100);
+            if (trialCard) {
+              setSelectedWithdrawCard(trialCard.amount);
+            } else if (activeList[0]) {
+              setSelectedWithdrawCard(activeList[0].amount);
+            }
+          } else {
+            const defaultPaid = activeList.find((c: WithdrawCard) => !c.isTrialAllowed && c.amount >= 460) || activeList[0];
+            if (defaultPaid) {
+              setSelectedWithdrawCard(defaultPaid.amount);
+            }
+          }
+        }
+      })
+      .catch((e) => console.warn('Withdraw cards load error:', e));
+
     loadHistories();
-  }, []);
+  }, [user?.isTrial]);
 
   useEffect(() => {
     const match = paymentNumbers.find((n) => n.method === depositMethod);
@@ -121,7 +144,7 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
     if (!assignedNumber) return;
     navigator.clipboard.writeText(assignedNumber);
     setCopiedAssigned(true);
-    showToast('success', 'Copied!', `Assigned ${depositMethod} number copied to clipboard.`);
+    showToast('success', 'কপি সম্পন্ন!', `${depositMethod} নম্বরটি ক্লিপবোর্ডে কপি করা হয়েছে।`);
     setTimeout(() => setCopiedAssigned(false), 2500);
   };
 
@@ -130,21 +153,21 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
     e.preventDefault();
     const amt = Number(depositAmount);
     if (!amt || amt < 100 || amt > 25000) {
-      showToast('error', 'Invalid Amount', 'Deposit amount must be between 100 TK and 25,000 TK.');
+      showToast('error', 'ভুল পরিমাণ', 'ডিপোজিট পরিমাণ ১০০ টাকা থেকে ২৫,০০০ টাকার মধ্যে হতে হবে।');
       return;
     }
     if (!senderNumber) {
-      showToast('error', 'Missing Sender', 'Please enter your sender mobile number.');
+      showToast('error', 'প্রেরক নম্বর দিন', 'অনুগ্রহ করে আপনার প্রেরক (Sender) মোবাইল নম্বর লিখুন।');
       return;
     }
     if (!transactionId || transactionId.trim().length < 6) {
-      showToast('error', 'Missing TrxID', 'Please enter a valid Transaction ID.');
+      showToast('error', 'সঠিক TrxID দিন', 'অনুগ্রহ করে সঠিক ট্রানজেকশন আইডি (TrxID) প্রদান করুন।');
       return;
     }
 
     try {
       setDepositSubmitting(true);
-      await apiRequest('/api/wallet/deposit', {
+      const res: any = await apiRequest('/api/wallet/deposit', {
         method: 'POST',
         body: JSON.stringify({
           amount: amt,
@@ -156,14 +179,20 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
         }),
       });
 
-      showToast('success', 'Deposit Submitted', 'Your deposit request is submitted for verification.');
+      if (res && res.autoVerified) {
+        showToast('success', '⚡ ইনস্ট্যান্ট ডিপোজিট সফল!', res.message || 'আপনার ডিপোজিট অটো ভেরিফাই হয়েছে এবং ওয়ালেটে টাকা জমা হয়েছে!');
+      } else {
+        showToast('info', 'ডিপোজিট রিকোয়েস্ট গৃহীত', res?.message || 'পেমেন্ট গেটওয়ে এসএমএস মিললেই ব্যালেন্স সাথে সাথে যুক্ত হবে।');
+      }
+
       setSenderNumber('');
       setTransactionId('');
       setScreenshotPreview('');
+      await refreshUserData();
       await loadHistories();
       setActiveTab('deposit-history');
     } catch (err: any) {
-      showToast('error', 'Deposit Failed', err.message || 'Could not submit deposit.');
+      showToast('error', 'ডিপোজিট ব্যর্থ', err.message || 'ডিপোজিট সম্পন্ন করা যায়নি।');
     } finally {
       setDepositSubmitting(false);
     }
@@ -173,11 +202,11 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
   const handleWithdrawSetupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!setupNumber || setupNumber.length < 11) {
-      showToast('error', 'Invalid Phone', 'Please enter a valid Bangladesh mobile number.');
+      showToast('error', 'ভুল মোবাইল নম্বর', 'অনুগ্রহ করে সঠিক ১১ ডিজিটের বাংলাদেশি মোবাইল নম্বর প্রদান করুন।');
       return;
     }
     if (!setupPassword || setupPassword.length < 4) {
-      showToast('error', 'Password Required', 'Withdraw password must be at least 4 characters.');
+      showToast('error', 'পাসওয়ার্ড প্রয়োজন', 'উইথড্র পাসওয়ার্ড অন্তত ৪ সংখ্যার হতে হবে।');
       return;
     }
 
@@ -191,10 +220,10 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
           withdrawPassword: setupPassword,
         }),
       });
-      showToast('success', 'Setup Locked', 'Your withdraw details are permanently locked.');
+      showToast('success', 'সেটআপ সম্পন্ন!', 'আপনার উইথড্র অ্যাকাউন্ট স্থায়ীভাবে লক করা হয়েছে।');
       await refreshUserData();
     } catch (err: any) {
-      showToast('error', 'Setup Error', err.message || 'Could not complete withdraw setup.');
+      showToast('error', 'সেটআপ ব্যর্থ', err.message || 'উইথড্র সেটআপ সম্পন্ন করা যায়নি।');
     } finally {
       setSetupSubmitting(false);
     }
@@ -208,16 +237,16 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
       showToast(
         'error',
         'উইথড্র অনুমতি সীমাবদ্ধ',
-        'ফ্রি ইউজাররা সরাসরি টাকা উইথড্র করতে পারবেন না। অনুগ্রহ করে সাপোর্ট টিমে অথবা আপনার রেফারেল মেম্বারের সাথে যোগাযোগ করুন।'
+        'আপনার নিয়োগ ব্যবস্থাপকের সঙ্গে যোগাযোগ করুন'
       );
       return;
     }
     if (!user?.withdrawSetupDone) {
-      showToast('error', 'Setup Required', 'You must setup your withdraw credentials first.');
+      showToast('error', 'সেটআপ প্রয়োজন', 'প্রথমে আপনার উইথড্র মেথড এবং পাসওয়ার্ড সেটআপ সম্পন্ন করুন।');
       return;
     }
     if (!withdrawPassword) {
-      showToast('error', 'Password Required', 'Please enter your withdraw password.');
+      showToast('error', 'পাসওয়ার্ড দিন', 'অনুগ্রহ করে আপনার উইথড্র পাসওয়ার্ড লিখুন।');
       return;
     }
 
@@ -233,7 +262,7 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
         }),
       });
 
-      showToast('success', 'Withdrawal Queued', `৳${selectedWithdrawCard} requested via ${user.withdrawMethod}.`);
+      showToast('success', 'উইথড্র রিকোয়েস্ট গৃহীত!', `৳${selectedWithdrawCard} উইথড্রল রিকোয়েস্ট (${user.withdrawMethod}) প্রক্রিয়াধীন রয়েছে।`);
       setWithdrawPassword('');
       await refreshUserData();
       await loadHistories();
@@ -242,21 +271,48 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
       if (err.message && (err.message.includes('ফ্রি ইউজার') || err.message.includes('Free users') || err.message.includes('referral member'))) {
         setShowFreeWithdrawModal(true);
       }
-      showToast('error', 'Withdrawal Failed', err.message || 'Could not process withdrawal.');
+      showToast('error', 'উইথড্র ব্যর্থ', err.message || 'উইথড্র প্রক্রিয়া সম্পন্ন করা যায়নি।');
     } finally {
       setWithdrawSubmitting(false);
     }
   };
 
-  // Available Withdraw Cards:
-  // Paid: 460, 1680, 5800, 16800, 49999, 150000
-  // Free trial user also gets 100 TK card
-  const withdrawCards = user?.isTrial
-    ? [100, 460, 1680, 5800, 16800, 49999, 150000]
-    : [460, 1680, 5800, 16800, 49999, 150000];
+  // Available Dynamic Withdraw Cards (with fallback):
+  const fallbackDefaultCards: WithdrawCard[] = [
+    { id: 'wcard_100', amount: 100, label: 'ফ্রি ট্রায়াল কার্ড', badge: 'TRIAL', badgeColor: 'cyan', minRole: 'Trial', isTrialAllowed: true, enabled: true, order: 1 },
+    { id: 'wcard_460', amount: 460, label: 'স্ট্যান্ডার্ড পেআউট', badge: 'INSTANT', badgeColor: 'emerald', minRole: 'Member', isTrialAllowed: false, enabled: true, order: 2 },
+    { id: 'wcard_1680', amount: 1680, label: 'পপুলার পেআউট', badge: 'POPULAR', badgeColor: 'purple', minRole: 'Member', isTrialAllowed: false, enabled: true, order: 3 },
+    { id: 'wcard_5800', amount: 5800, label: 'প্রিমিয়াম পেআউট', badge: 'HOT', badgeColor: 'amber', minRole: 'Member', isTrialAllowed: false, enabled: true, order: 4 },
+    { id: 'wcard_16800', amount: 16800, label: 'ভিআইপি পেআউট', badge: 'VIP ONLY', badgeColor: 'amber', minRole: 'VIP', isTrialAllowed: false, enabled: true, order: 5 },
+    { id: 'wcard_49999', amount: 49999, label: 'এলিট পেআউট', badge: 'HIGH LIMIT', badgeColor: 'blue', minRole: 'VIP', isTrialAllowed: false, enabled: true, order: 6 },
+    { id: 'wcard_150000', amount: 150000, label: 'রয়্যাল পেআউট', badge: 'MAX LIMIT', badgeColor: 'rose', minRole: 'VIP', isTrialAllowed: false, enabled: true, order: 7 },
+  ];
+
+  const rawCards = dynamicWithdrawCards.length > 0 ? dynamicWithdrawCards : fallbackDefaultCards;
+  const activeWithdrawCards = rawCards
+    .filter((c) => c.enabled)
+    .sort((a, b) => (a.order || 0) - (b.order || 0) || a.amount - b.amount);
 
   const withdrawFee = (selectedWithdrawCard * 10) / 100;
   const withdrawNet = selectedWithdrawCard - withdrawFee;
+
+  const getCardBadgeTheme = (color?: string) => {
+    switch (color) {
+      case 'amber':
+        return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+      case 'rose':
+        return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+      case 'purple':
+        return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+      case 'cyan':
+        return 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
+      case 'blue':
+        return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+      case 'emerald':
+      default:
+        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    }
+  };
 
   return (
     <div id="wallet-view-root" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-24 md:pb-12">
@@ -377,10 +433,24 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
           <div className="lg:col-span-7 space-y-6">
             <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-6">
               <div className="space-y-1">
-                <h3 className="text-lg font-bold text-white">Deposit Wallet Balance</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-white">Deposit Wallet Balance</h3>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Smart Auto-Verify Active
+                  </span>
+                </div>
                 <p className="text-xs text-slate-400">
-                  Range: 100 TK to 25,000 TK. Approval directly credits your wallet balance.
+                  Range: 100 TK to 25,000 TK. Instant automatic verification via bKash / Nagad gateway SMS.
                 </p>
+              </div>
+
+              {/* Smart Auto Notice */}
+              <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-200/90 flex items-start gap-2.5">
+                <span className="text-base leading-none">⚡</span>
+                <div>
+                  <span className="font-bold text-emerald-300">স্বয়ংক্রিয় ডিপোজিট সিস্টেম:</span> টাকা সেন্ড মানি করে শুধুমাত্র ট্রানজেকশন আইডি (TrxID) ও প্রেরক নম্বর দিয়ে সাবমিট করুন। সিস্টেম সরাসরি গেটওয়ে থেকে মিলিয়ে সাথে সাথে আপনার ওয়ালেটে ব্যালেন্স জমা করবে!
+                </div>
               </div>
 
               {/* Payment Method Selector */}
@@ -513,9 +583,13 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                   id="btn-submit-deposit"
                   type="submit"
                   disabled={depositSubmitting}
-                  className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-950 transition disabled:opacity-50 cursor-pointer"
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-xl shadow-emerald-950/50 transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {depositSubmitting ? 'Submitting Verification...' : 'Submit Deposit Request'}
+                  {depositSubmitting ? (
+                    <span>অটো ভেরিফিকেশন চলছে...</span>
+                  ) : (
+                    <span>⚡ ইনস্ট্যান্ট ভেরিফাই ও ব্যালেন্স জমা করুন</span>
+                  )}
                 </button>
               </form>
             </div>
@@ -746,32 +820,76 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
                 </div>
 
                 {/* Amount Cards Selector (LOCKED - MUST BE CARDS, NOT DROPDOWN!) */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                    Select Withdraw Amount Card
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {withdrawCards.map((cardAmount) => {
-                      const isSelected = selectedWithdrawCard === cardAmount;
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      উইথড্রল কার্ড নির্বাচন করুন (Select Amount Card)
+                    </label>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      মোট {activeWithdrawCards.length} টি কার্ড সক্রিয়
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {activeWithdrawCards.map((card) => {
+                      const isSelected = selectedWithdrawCard === card.amount;
+                      const cardFee = (card.amount * 10) / 100;
+                      const cardNet = card.amount - cardFee;
+
                       return (
                         <button
-                          key={cardAmount}
+                          key={card.id || card.amount}
                           type="button"
-                          id={`card-withdraw-${cardAmount}`}
-                          onClick={() => setSelectedWithdrawCard(cardAmount)}
-                          className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                          id={`card-withdraw-${card.amount}`}
+                          onClick={() => setSelectedWithdrawCard(card.amount)}
+                          className={`relative p-3.5 sm:p-4 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between gap-2.5 cursor-pointer min-h-[110px] group ${
                             isSelected
-                              ? 'bg-emerald-950/60 border-emerald-500 text-white shadow-lg ring-2 ring-emerald-500/20'
-                              : 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-900'
+                              ? 'bg-gradient-to-b from-emerald-950/80 to-slate-950 border-emerald-500 text-white shadow-xl shadow-emerald-950/50 ring-2 ring-emerald-500/30'
+                              : 'bg-slate-950/90 border-slate-800/90 text-slate-300 hover:border-slate-700 hover:bg-slate-900/60'
                           }`}
                         >
-                          <span className="text-xs text-slate-400 font-medium">Card Value</span>
-                          <span className="text-xl font-black text-emerald-300">
-                            ৳ {cardAmount.toLocaleString()}
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            Net: ৳{(cardAmount * 0.9).toLocaleString()}
-                          </span>
+                          {/* Top Badges & Status */}
+                          <div className="flex items-center justify-between gap-1 w-full">
+                            {card.badge ? (
+                              <span
+                                className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${getCardBadgeTheme(
+                                  card.badgeColor
+                                )}`}
+                              >
+                                {card.badge}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-medium">Card</span>
+                            )}
+
+                            <div
+                              className={`w-4 h-4 rounded-full flex items-center justify-center border transition ${
+                                isSelected
+                                  ? 'bg-emerald-500 border-emerald-400 text-slate-950'
+                                  : 'border-slate-700 bg-slate-900/60'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                          </div>
+
+                          {/* Card Amount Display */}
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-slate-400 font-medium block truncate">
+                              {card.label || 'কার্ড ভ্যালু'}
+                            </span>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base sm:text-lg font-black text-white group-hover:text-emerald-300 transition">
+                                ৳ {card.amount.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Net Payout Footnote */}
+                          <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                            <span className="text-slate-400">পাবেন (Net):</span>
+                            <span className="font-bold text-emerald-400">৳ {cardNet.toLocaleString()}</span>
+                          </div>
                         </button>
                       );
                     })}
@@ -1061,14 +1179,14 @@ export function WalletView({ initialTab = 'overview', onNavigate }: WalletViewPr
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs leading-relaxed text-slate-300">
-                <p className="font-semibold text-amber-300">
-                  ফ্রি ইউজাররা সরাসরি টাকা উইথড্র করতে পারবেন না।
+                <p className="font-bold text-amber-300 text-sm">
+                  আপনার নিয়োগ ব্যবস্থাপকের সঙ্গে যোগাযোগ করুন
                 </p>
                 <p>
-                  টাকা উইথড্র করার অনুমতি পেতে অনুগ্রহ করে সাপোর্ট টিমে অথবা আপনার রেফারেল মেম্বারের সাথে যোগাযোগ করুন। প্যানেল থেকে এডমিন ফ্রি ইউজারদের উইথড্র করার অনুমতি এনাবল করলে আপনি টাকা উইথড্র করতে পারবেন।
+                  ফ্রি একাউন্ট থেকে টাকা উইথড্র করার জন্য আপনার নিয়োগ ব্যবস্থাপকের অনুমতি প্রয়োজন। এডমিন প্যানেল থেকে আপনার অ্যাকাউন্টের উইথড্র পারমিশন এনাবল করার পর আপনি কোনো সমস্যা ছাড়াই সহজে টাকা উইথড্র করতে পারবেন।
                 </p>
                 <p className="text-emerald-400 pt-1 border-t border-slate-800">
-                  💡 বিকল্প স্থায়ী সমাধান: আপনি ডিপোজিট করে যেকোনো মেম্বারশিপ প্যাকেজ (যেমন Bronze, Golden, Diamond) ক্রয় করলে কোনো অনুমতি ছাড়াই স্বাভাবিকভাবে আজীবন কাজ করতে ও প্রতিদিন আনলিমিটেড টাকা উইথড্র করতে পারবেন।
+                  💡 বিকল্প স্থায়ী সমাধান: আপনি ডিপোজিট করে যেকোনো মেম্বারশিপ প্যাকেজ ক্রয় করলে কোনো আলাদা অনুমতি ছাড়াই রোল বা শর্ত ছাড়া স্বাভাবিকভাবে টাকা উইথড্র করতে পারবেন।
                 </p>
               </div>
 

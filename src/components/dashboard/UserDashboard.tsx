@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   PlaySquare,
+  Package,
   Users,
   Sparkles,
   Gift,
@@ -24,6 +25,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
+import { HomeCarousel } from './HomeCarousel';
 
 interface UserDashboardProps {
   onNavigate: (view: string) => void;
@@ -37,50 +39,12 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [sliderIndex, setSliderIndex] = useState(0);
-  const [sliders, setSliders] = useState<any[]>([
-    {
-      id: 'default-1',
-      title: 'Mega 15% bKash & Nagad Deposit Bonus',
-      tag: 'Limited Ramadan Offer',
-      description: 'Top up your wallet today with 2,500 TK or more to receive an instant 15% top-up bonus!',
-      actionText: 'Deposit Now',
-      targetUrl: 'wallet',
-      imageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200',
-    },
-    {
-      id: 'default-2',
-      title: 'Upgrade to Golden or Diamond Tier',
-      tag: 'Earn Up To 750 TK Daily',
-      description: 'Watch up to 15 video tasks daily (10s each) with lifetime 3-tier referral commissions.',
-      actionText: 'View VIP Packages',
-      targetUrl: 'packages',
-      imageUrl: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1200',
-    },
-  ]);
 
   useEffect(() => {
     // Fetch today tasks progress
     apiRequest('/api/tasks/today')
       .then((data) => setTaskData(data))
       .catch((e) => console.warn('Task data fetch error:', e));
-
-    // Fetch dynamic homepage sliders from admin control panel
-    apiRequest('/api/sliders/public')
-      .then((data) => {
-        if (data && data.sliders && data.sliders.length > 0) {
-          setSliders(data.sliders);
-        }
-      })
-      .catch(() => {
-        apiRequest('/sliders/public')
-          .then((data) => {
-            if (data && data.sliders && data.sliders.length > 0) {
-              setSliders(data.sliders);
-            }
-          })
-          .catch((e) => console.warn('Sliders fetch error:', e));
-      });
 
     // Fetch active promotions
     apiRequest('/api/promotions')
@@ -92,15 +56,6 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
       .then((data) => setNotifications((data.notifications || []).slice(0, 3)))
       .catch((e) => console.warn('Notifications fetch error:', e));
   }, []);
-
-  // Auto-rotate sliders every 5 seconds
-  useEffect(() => {
-    if (sliders.length <= 1) return;
-    const timer = setInterval(() => {
-      setSliderIndex((prev) => (prev + 1) % sliders.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [sliders.length]);
 
   const adminSlides = [
     {
@@ -141,12 +96,12 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
   const handleShare = async () => {
     if (!user) return;
     const link = `${window.location.origin}?ref=${user.referralCode}`;
-    const text = `Join EarnHub BD using my referral code ${user.referralCode} and start earning daily! (রেজিস্ট্রেশনের জন্য রেফার কোড আবশ্যক): ${link}`;
+    const text = `Join EarnNetwork BD (earnnetworkbd.com) using my referral code ${user.referralCode} and start earning daily! (রেজিস্ট্রেশনের জন্য রেফার কোড আবশ্যক): ${link}`;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'EarnHub BD Invitation',
+          title: 'EarnNetwork BD Invitation',
           text,
           url: link,
         });
@@ -163,80 +118,19 @@ export function UserDashboard({ onNavigate }: UserDashboardProps) {
 
   const quickGridItems = [
     { id: 'tasks', label: 'Tasks', icon: PlaySquare, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-    { id: 'wallet', label: 'Wallet', icon: Wallet, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+    { id: 'packages', label: 'VIP Plans', icon: Package, color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
+    { id: 'wallet', label: 'Deposit', icon: Wallet, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
     { id: 'withdraw', label: 'Withdraw', icon: ArrowUpRight, color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
     { id: 'referral', label: 'Referral', icon: Users, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
     { id: 'promotion', label: 'Promotion', icon: Sparkles, color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
     { id: 'salary', label: 'Salary', icon: TrendingUp, color: 'text-teal-400 bg-teal-500/10 border-teal-500/20' },
-    { id: 'notifications', label: 'Notifications', icon: Bell, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
-    { id: 'account', label: 'My Account', icon: UserIcon, color: 'text-slate-300 bg-slate-700/20 border-slate-600/30' },
+    { id: 'account', label: 'Account', icon: UserIcon, color: 'text-slate-300 bg-slate-700/20 border-slate-600/30' },
   ];
 
   return (
     <div id="user-dashboard-root" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-24 md:pb-12">
-      {/* 1. ADMIN CONTROLLED SLIDER */}
-      {sliders.length > 0 && (
-        <div id="section-admin-slider" className="relative rounded-2xl overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/95 to-emerald-950/50 p-4 sm:p-6 shadow-xl">
-          {/* Background image if provided */}
-          {sliders[sliderIndex]?.imageUrl && (
-            <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-              <img
-                src={sliders[sliderIndex].imageUrl}
-                alt=""
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent" />
-            </div>
-          )}
-
-          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {sliders[sliderIndex]?.tag || 'Special Offer'}
-                </span>
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                {sliders[sliderIndex]?.title}
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                {sliders[sliderIndex]?.description || sliders[sliderIndex]?.desc}
-              </p>
-            </div>
-
-            <button
-              onClick={() => {
-                const url = sliders[sliderIndex]?.targetUrl || sliders[sliderIndex]?.action || 'wallet';
-                if (url.startsWith('http')) {
-                  window.open(url, '_blank', 'noopener,noreferrer');
-                } else {
-                  onNavigate(url);
-                }
-              }}
-              className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 active:scale-95 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition cursor-pointer min-h-[44px]"
-            >
-              <span>{sliders[sliderIndex]?.actionText || 'Explore Offer'}</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Slider Pagination Dots */}
-          {sliders.length > 1 && (
-            <div className="relative z-10 mt-4 flex items-center justify-center gap-1.5">
-              {sliders.map((s, idx) => (
-                <button
-                  key={s.id || idx}
-                  onClick={() => setSliderIndex(idx)}
-                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                    idx === sliderIndex ? 'w-6 bg-emerald-400' : 'w-1.5 bg-slate-700 hover:bg-slate-500'
-                  }`}
-                  aria-label={`Go to slide ${idx + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 1. ADMIN CONTROLLED HOMEPAGE CAROUSEL */}
+      <HomeCarousel onNavigate={onNavigate} />
 
       {/* 2 & 3. WALLET SUMMARY & TODAY'S INCOME */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

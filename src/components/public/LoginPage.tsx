@@ -19,12 +19,12 @@ export function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
     setError('');
 
     if (!phone.trim()) {
-      setError('Please enter your Bangladesh phone number.');
+      setError('অনুগ্রহ করে আপনার মোবাইল নম্বর লিখুন।');
       return;
     }
 
     if (!password) {
-      setError('Please enter your password.');
+      setError('অনুগ্রহ করে আপনার পাসওয়ার্ড লিখুন।');
       return;
     }
 
@@ -33,7 +33,7 @@ export function LoginPage({ onNavigate, onLoginSuccess }: LoginPageProps) {
       const res = await login(phone.trim(), password);
       onLoginSuccess(res.isAdmin);
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check credentials.');
+      setError(err.message || 'লগইন ব্যর্থ হয়েছে। মোবাইল নম্বর ও পাসওয়ার্ড সঠিক কিনা পরীক্ষা করুন।');
     } finally {
       setLoading(false);
     }

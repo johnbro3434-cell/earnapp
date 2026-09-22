@@ -24,6 +24,8 @@ export function VideoTasksView() {
   const { user, wallet, refreshUserData } = useAuth();
   const { showToast } = useToast();
 
+  const isFreeUser = Boolean(user?.isTrial || !user?.activePackageId || user?.activePackageId === 'pkg_trial');
+
   const [loading, setLoading] = useState(true);
   const [taskData, setTaskData] = useState<any>(null);
   const [activeTask, setActiveTask] = useState<any>(null);
@@ -31,12 +33,32 @@ export function VideoTasksView() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [claiming, setClaiming] = useState(false);
-  const [autoPlayNext, setAutoPlayNext] = useState(true);
+  const [autoPlayNext, setAutoPlayNext] = useState(false);
   const [autoTransitioning, setAutoTransitioning] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const isTransitioningRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFreeUser) {
+      setAutoPlayNext(true);
+    } else {
+      setAutoPlayNext(false);
+    }
+  }, [isFreeUser]);
+
+  const handleToggleAutoPlay = () => {
+    if (isFreeUser) {
+      showToast(
+        'info',
+        'VIP Feature (শুধুমাত্র পেইড মেম্বার)',
+        'অটোপ্লে (Auto-Play) সুবিধা শুধুমাত্র Bronze বা VIP পেইড মেম্বারদের জন্য। স্বয়ংক্রিয় ভিডিও প্লে করতে প্যাকেজ আপগ্রেড করুন।'
+      );
+      return;
+    }
+    setAutoPlayNext(!autoPlayNext);
+  };
 
   const fetchTasks = async () => {
     try {
@@ -75,12 +97,12 @@ export function VideoTasksView() {
     return () => clearInterval(interval);
   }, [isPlaying, countdown]);
 
-  // Auto-play next task when current task reaches 0s countdown
+  // Auto-play next task when current task reaches 0s countdown (VIP Only)
   useEffect(() => {
-    if (isCompleted && autoPlayNext && !claiming && activeTask && !isTransitioningRef.current) {
+    if (isCompleted && autoPlayNext && !isFreeUser && !claiming && activeTask && !isTransitioningRef.current) {
       handleClaimAndAutoNext();
     }
-  }, [isCompleted, autoPlayNext, claiming, activeTask]);
+  }, [isCompleted, autoPlayNext, isFreeUser, claiming, activeTask]);
 
   const handleStartTask = (task: any) => {
     isTransitioningRef.current = false;
@@ -183,7 +205,7 @@ export function VideoTasksView() {
       setIsCompleted(false);
       setCountdown(10);
 
-      if (autoPlayNext && updatedData.remainingCount > 0 && updatedData.tasks?.length > 0) {
+      if (autoPlayNext && !isFreeUser && updatedData.remainingCount > 0 && updatedData.tasks?.length > 0) {
         const currentIndex = updatedData.tasks.findIndex((t: any) => t.id === activeTask?.id);
         const nextIndex = (currentIndex + 1) % updatedData.tasks.length;
         const nextTask = updatedData.tasks[nextIndex];
@@ -256,23 +278,32 @@ export function VideoTasksView() {
         <div className="flex flex-wrap items-center gap-3">
           {/* Auto-Play Next Task Switch */}
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800">
-            <Zap className={`w-4 h-4 ${autoPlayNext ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-500'}`} />
+            <Zap className={`w-4 h-4 ${autoPlayNext && !isFreeUser ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-500'}`} />
             <div className="flex flex-col">
-              <span className="text-[11px] font-bold text-white leading-tight">Auto-Play Next</span>
-              <span className="text-[9px] text-slate-400">অটো প্লে</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-white leading-tight">Auto-Play Next</span>
+                {isFreeUser && (
+                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    VIP Only
+                  </span>
+                )}
+              </div>
+              <span className="text-[9px] text-slate-400">
+                {isFreeUser ? 'লক করা (VIP সুবিধা)' : 'অটো প্লে'}
+              </span>
             </div>
             <button
               type="button"
               id="btn-toggle-autoplay"
-              onClick={() => setAutoPlayNext(!autoPlayNext)}
+              onClick={handleToggleAutoPlay}
               aria-label="Toggle auto play next task"
               className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ml-1 cursor-pointer ${
-                autoPlayNext ? 'bg-emerald-500' : 'bg-slate-700'
+                autoPlayNext && !isFreeUser ? 'bg-emerald-500' : 'bg-slate-700'
               }`}
             >
               <span
                 className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                  autoPlayNext ? 'translate-x-5.5' : 'translate-x-1'
+                  autoPlayNext && !isFreeUser ? 'translate-x-5.5' : 'translate-x-1'
                 }`}
               />
             </button>
@@ -379,7 +410,7 @@ export function VideoTasksView() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-white text-base">{activeTask?.title}</h3>
-                {autoPlayNext && (
+                {autoPlayNext && !isFreeUser && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
                     <Zap className="w-3 h-3" /> Auto-Play
                   </span>
@@ -394,7 +425,7 @@ export function VideoTasksView() {
               <span className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-400 font-semibold text-xs">
                 Daily Limit Reached
               </span>
-            ) : isCompleted && !autoPlayNext ? (
+            ) : isCompleted && (!autoPlayNext || isFreeUser) ? (
               <button
                 id="btn-claim-task-reward"
                 onClick={handleManualClaim}

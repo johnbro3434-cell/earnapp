@@ -24,6 +24,15 @@ import {
   SupportTicket,
   HomeSlider,
   RoleDefinition,
+  SmsTransaction,
+  VerifyDevice,
+  MfsVerificationSettings,
+  VerificationLog,
+  FraudLog,
+  WalletTransactionLedger,
+  AuditLog,
+  ApkVersionRecord,
+  WithdrawCard,
 } from '../src/types';
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'store.json');
@@ -32,7 +41,11 @@ export interface StoreData {
   users: User[];
   wallets: Wallet[];
   transactions: Transaction[];
+  walletTransactions: WalletTransactionLedger[];
+  auditLogs: AuditLog[];
+  apkVersions: ApkVersionRecord[];
   packages: Package[];
+  withdrawCards: WithdrawCard[];
   deposits: DepositRequest[];
   withdraws: WithdrawRequest[];
   videoTasks: VideoTask[];
@@ -51,7 +64,106 @@ export interface StoreData {
   supportTickets: SupportTicket[];
   sliders: HomeSlider[];
   roles: RoleDefinition[];
+  smsTransactions: SmsTransaction[];
+  verifyDevices: VerifyDevice[];
+  mfsSettings: MfsVerificationSettings;
+  verificationLogs: VerificationLog[];
+  fraudLogs: FraudLog[];
 }
+
+const defaultWithdrawCards: WithdrawCard[] = [
+  {
+    id: 'wcard_100',
+    amount: 100,
+    label: 'ফ্রি ট্রায়াল কার্ড',
+    badge: 'FREE TRIAL',
+    badgeColor: 'cyan',
+    minRole: 'Member',
+    isTrialAllowed: true,
+    enabled: true,
+    order: 1,
+    description: 'ফ্রি ট্রায়াল সম্পন্ন ইউজারদের জন্য নির্ধারিত উইথড্র কার্ড',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'wcard_460',
+    amount: 460,
+    label: 'মিনি ক্যাশআউট',
+    badge: 'STARTER',
+    badgeColor: 'emerald',
+    minRole: 'Member',
+    isTrialAllowed: false,
+    enabled: true,
+    order: 2,
+    description: 'ভিআইপি মেম্বারদের সর্বনিম্ন নিয়মিত ক্যাশআউট কার্ড',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'wcard_1680',
+    amount: 1680,
+    label: 'স্ট্যান্ডার্ড পেআউট',
+    badge: 'POPULAR',
+    badgeColor: 'amber',
+    minRole: 'Member',
+    isTrialAllowed: false,
+    enabled: true,
+    order: 3,
+    description: 'সর্বাধিক ব্যবহৃত জনপ্রিয় উইথড্র কার্ড',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'wcard_5800',
+    amount: 5800,
+    label: 'এক্সিকিউটিভ ক্যাশ',
+    badge: 'FAST PAYOUT',
+    badgeColor: 'purple',
+    minRole: 'Member',
+    isTrialAllowed: false,
+    enabled: true,
+    order: 4,
+    description: 'দ্রুত প্রসেসিং সম্পন্ন প্রিমিয়াম কার্ড',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'wcard_16800',
+    amount: 16800,
+    label: 'প্রো আর্নার পেআউট',
+    badge: 'HOT',
+    badgeColor: 'rose',
+    minRole: 'Member',
+    isTrialAllowed: false,
+    enabled: true,
+    order: 5,
+    description: 'হাই ভলিউম মেম্বারদের জন্য বিশেষ কার্ড',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'wcard_49999',
+    amount: 49999,
+    label: 'মাস্টার ভিআইপি পেআউট',
+    badge: 'VIP CLUB',
+    badgeColor: 'amber',
+    minRole: 'Member',
+    isTrialAllowed: false,
+    enabled: true,
+    order: 6,
+    description: 'ভিআইপি ও লিডারদের জন্য মেগা ক্যাশআউট',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'wcard_150000',
+    amount: 150000,
+    label: 'রয়্যাল এলিট পেআউট',
+    badge: 'ELITE SUPREME',
+    badgeColor: 'cyan',
+    minRole: 'Member',
+    isTrialAllowed: false,
+    enabled: true,
+    order: 7,
+    description: 'সর্বোচ্চ সীমা এক্সক্লুসিভ এলিট উইথড্র কার্ড',
+    createdAt: new Date().toISOString(),
+  },
+];
 
 const defaultPackages: Package[] = [
   {
@@ -59,8 +171,8 @@ const defaultPackages: Package[] = [
     name: 'Free Trial',
     price: 0,
     dailyIncome: 25,
-    videosPerDay: 1,
-    incomePerVideo: 25,
+    videosPerDay: 5,
+    incomePerVideo: 5,
     validityDays: 4,
     badgeColor: 'emerald',
     enabled: true,
@@ -249,19 +361,19 @@ const defaultCampaigns: Campaign[] = [
 ];
 
 const defaultSettings: WebsiteSettings = {
-  websiteName: 'EarnHub BD V20 Enterprise',
-  tagline: 'Leading Digital Micro-Task Earning Ecosystem in Bangladesh',
+  websiteName: 'EarnNetwork BD',
+  tagline: 'Leading Digital Micro-Task Earning Ecosystem in Bangladesh (earnnetworkbd.com)',
   logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80',
   mobileLogoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
   whatsappNumber: '+8801700112233',
-  telegramGroupUrl: 'https://t.me/earnhub_bd_group',
-  telegramChannelUrl: 'https://t.me/earnhub_bd_official',
-  facebookGroupUrl: 'https://facebook.com/groups/earnhubbd',
-  youtubeTutorialUrl: 'https://youtube.com/watch?v=earnhubbd_guide',
-  appDownloadUrl: 'https://earnhub-bd.com/download/app.apk',
-  marqueeNotice: '🔥 EarnHub BD V20 Enterprise - প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ইনকাম করুন! নতুন মেম্বারদের জন্য ফ্রি ট্রায়াল চালু রয়েছে। যেকোনো সহায়তায় আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।',
+  telegramGroupUrl: 'https://t.me/earnnetworkbd_group',
+  telegramChannelUrl: 'https://t.me/earnnetworkbd_official',
+  facebookGroupUrl: 'https://facebook.com/groups/earnnetworkbd',
+  youtubeTutorialUrl: 'https://youtube.com/watch?v=earnnetworkbd_guide',
+  appDownloadUrl: 'https://earnnetworkbd.com/download/app.apk',
+  marqueeNotice: '🔥 EarnNetwork BD (earnnetworkbd.com) - প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ইনকাম করুন! নতুন মেম্বারদের জন্য ফ্রি ট্রায়াল চালু রয়েছে। যেকোনো সহায়তায় আমাদের হোয়াটসঅ্যাপে যোগাযোগ করুন।',
   themePrimaryColor: '#059669', // Emerald Green BD
-  footerText: '© 2026 EarnHub BD V20 Enterprise Ltd. Registered in Dhaka, Bangladesh. All Rights Reserved.',
+  footerText: '© 2026 EarnNetwork BD (earnnetworkbd.com). Registered in Dhaka, Bangladesh. All Rights Reserved.',
   minDepositAmount: 500,
   maxDepositAmount: 100000,
   minWithdrawAmount: 300,
@@ -331,34 +443,37 @@ const defaultRoles: RoleDefinition[] = [
 
 const defaultSliders: HomeSlider[] = [
   {
-    id: 'slide_1',
-    title: 'Earn Daily Micro-Task Rewards in Bangladesh',
-    subtitle: 'Watch 10-second sponsor videos and get instant bKash & Nagad payments',
-    imageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&auto=format&fit=crop&q=80',
-    buttonText: 'Start Free Trial',
-    buttonLink: '/register',
+    id: 'slide_nagad_bonus',
+    title: '৮% পর্যন্ত এক্সট্রা নগদ পেমেন্টে',
+    subtitle: '* শর্তাদি এবং শর্তাবলী প্রযোজ্য | নগদ ডিপোজিটে ক্যাশব্যাক বোনাস',
+    tag: 'মাত্র ১X ওয়েজারিং!',
+    imageUrl: '/banners/nagad_bonus.jpg',
+    buttonText: 'ডিপোজিট করুন',
+    buttonLink: 'wallet',
     status: 'active',
     sortOrder: 1,
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'slide_2',
-    title: 'Ramadan Mega Bonus & Festival Rewards',
-    subtitle: '15% instant deposit cashback and active leader team salary pool',
-    imageUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&auto=format&fit=crop&q=80',
-    buttonText: 'Upgrade Package',
-    buttonLink: '/packages',
+    id: 'slide_bkash_vip',
+    title: 'VIP মেম্বারশিপ আপগ্রেড - দৈনিক ৭৫০৳ পর্যন্ত ইনকাম',
+    subtitle: '১০ সেকেন্ড স্পন্সর ভিডিও এবং লাইফটাইম ৩-টায়ার রেফারেল কমিশন',
+    tag: 'VIP এক্সক্লুসিভ',
+    imageUrl: '/banners/bkash_vip.jpg',
+    buttonText: 'প্যাকেজ দেখুন',
+    buttonLink: 'packages',
     status: 'active',
     sortOrder: 2,
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'slide_3',
-    title: 'Automated Real-Time Micro-Earnings',
-    subtitle: 'Guaranteed 10-second timer countdown with transparent ledger transactions',
+    id: 'slide_trial_tasks',
+    title: 'প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ১০০৳ পর্যন্ত আর্ন করুন',
+    subtitle: 'ফ্রি ট্রায়াল মেম্বার ও ভিআইপিদের জন্য নিশ্চিত ইনস্ট্যান্ট বিকাশ/নগদ পেমেন্ট',
+    tag: 'ডেইলি স্পন্সর টাস্ক',
     imageUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=1200&auto=format&fit=crop&q=80',
-    buttonText: 'View Today Tasks',
-    buttonLink: '/tasks',
+    buttonText: 'টাস্ক শুরু করুন',
+    buttonLink: 'tasks',
     status: 'active',
     sortOrder: 3,
     createdAt: new Date().toISOString(),
@@ -418,11 +533,95 @@ const defaultSupportTickets: SupportTicket[] = [
   },
 ];
 
+const defaultMfsSettings: MfsVerificationSettings = {
+  autoVerificationEnabled: true, // PRIMARY RULE: Default ON
+  manualVerificationEnabled: false, // PRIMARY RULE: Default OFF
+  fallbackManualReview: true,
+  verificationTimeoutMinutes: 10,
+  allowedSmsAgeHours: 24,
+  enableDeviceSync: true,
+  deviceSecretToken: 'ehbd_sec_verify_token_2026',
+  apkDownloadUrl: '/downloads/EarnHubVerify.apk',
+  latestApkVersion: '2.0.4',
+  forceUpdateApk: false,
+};
+
+const defaultVerifyDevices: VerifyDevice[] = [
+  {
+    id: 'dev_sim_01',
+    deviceId: 'android_mfs_gateway_01',
+    deviceName: 'Samsung Galaxy M12 (Official bKash & Nagad SIM)',
+    phoneNumber: '01712345678',
+    deviceToken: 'ehbd_sec_verify_token_2026',
+    batteryPercent: 94,
+    networkType: 'WiFi + 4G LTE',
+    status: 'online',
+    lastSyncAt: new Date(Date.now() - 12000).toISOString(),
+    lastHeartbeatAt: new Date(Date.now() - 8000).toISOString(),
+    totalSmsForwarded: 148,
+    appVersion: '2.0.4',
+    isBanned: false,
+  },
+];
+
+const defaultSmsTransactions: SmsTransaction[] = [
+  {
+    id: 'sms_bkash_sample_1',
+    trxId: '9K28SA710P',
+    method: 'bKash',
+    amount: 500,
+    senderNumber: '01711111111',
+    balanceAfter: '1,250.00',
+    smsTime: '22/09/2026 14:30',
+    rawSms: 'You have received Tk 500.00 from 01711111111. Ref . Fee Tk 0.00. Balance Tk 1,250.00. TrxID 9K28SA710P at 22/09/2026 14:30',
+    deviceId: 'android_mfs_gateway_01',
+    verified: false,
+    used: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'sms_nagad_sample_2',
+    trxId: '72KB901P',
+    method: 'Nagad',
+    amount: 1000,
+    senderNumber: '01822222222',
+    balanceAfter: '2,300.00',
+    smsTime: '22/09/2026 15:45',
+    rawSms: 'Cash In of Tk 1,000.00 from 01822222222 received. Balance: Tk 2,300.00. TxnID: 72KB901P at 22/09/2026 15:45',
+    deviceId: 'android_mfs_gateway_01',
+    verified: false,
+    used: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const defaultApkVersions: ApkVersionRecord[] = [
+  {
+    id: 'apk_v204',
+    version: '2.0.4',
+    releaseNotes: 'EarnHub Verify V20 official native APK release with 30s heartbeat telemetry, persistent foreground SMS forwarder, regex parsing, and automatic offline retry queue.',
+    fileSize: '1.8 MB',
+    downloadUrl: '/downloads/EarnHubVerify.apk',
+    downloadCount: 42,
+    isCurrent: true,
+    minSupportedVersion: '2.0.0',
+    forceUpdate: false,
+    releasedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    uploadedBy: 'Sultan Mahmud (Chief Admin)',
+  },
+];
+
 let store: StoreData = {
   users: [],
   wallets: [],
   transactions: [],
+  walletTransactions: [],
+  auditLogs: [],
+  apkVersions: defaultApkVersions,
   packages: defaultPackages,
+  withdrawCards: defaultWithdrawCards,
   deposits: [],
   withdraws: [],
   videoTasks: defaultVideoTasks,
@@ -477,6 +676,11 @@ let store: StoreData = {
   supportTickets: defaultSupportTickets,
   sliders: defaultSliders,
   roles: defaultRoles,
+  smsTransactions: defaultSmsTransactions,
+  verifyDevices: defaultVerifyDevices,
+  mfsSettings: defaultMfsSettings,
+  verificationLogs: [],
+  fraudLogs: [],
 };
 
 // Seed initial users with bcrypt hashes
@@ -501,6 +705,39 @@ function initializeSeedData() {
       }
       if (!store.roles || !store.roles.length) {
         store.roles = defaultRoles;
+      }
+      if (!store.mfsSettings) {
+        store.mfsSettings = defaultMfsSettings;
+      }
+      if (!store.verifyDevices || !store.verifyDevices.length) {
+        store.verifyDevices = defaultVerifyDevices;
+      }
+      if (!store.smsTransactions) {
+        store.smsTransactions = defaultSmsTransactions;
+      }
+      if (!store.verificationLogs) {
+        store.verificationLogs = [];
+      }
+      if (!store.fraudLogs) {
+        store.fraudLogs = [];
+      }
+      if (!store.walletTransactions) {
+        store.walletTransactions = [];
+      }
+      if (!store.auditLogs) {
+        store.auditLogs = [];
+      }
+      if (!store.apkVersions || !store.apkVersions.length) {
+        store.apkVersions = defaultApkVersions;
+      }
+      if (!store.withdrawCards || !store.withdrawCards.length) {
+        store.withdrawCards = defaultWithdrawCards;
+      }
+      const existingTrial = store.packages?.find((p) => p.id === 'pkg_trial');
+      if (existingTrial) {
+        existingTrial.videosPerDay = 5;
+        existingTrial.incomePerVideo = 5;
+        existingTrial.dailyIncome = 25;
       }
       return;
     } catch (e) {
@@ -794,6 +1031,53 @@ function initializeSeedData() {
     supportTickets: defaultSupportTickets,
     sliders: defaultSliders,
     roles: defaultRoles,
+    smsTransactions: defaultSmsTransactions,
+    verifyDevices: defaultVerifyDevices,
+    mfsSettings: defaultMfsSettings,
+    verificationLogs: [],
+    fraudLogs: [],
+    walletTransactions: [
+      {
+        id: 'wtx_seed_01',
+        userId: user1.id,
+        transactionType: 'Deposit Verification',
+        amount: 7500,
+        balanceBefore: 0,
+        balanceAfter: 7500,
+        reason: 'Deposit Verification',
+        referenceId: 'dep_init_01',
+        createdBy: 'SYSTEM',
+        status: 'completed',
+        createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
+      },
+      {
+        id: 'wtx_seed_02',
+        userId: user1.id,
+        transactionType: 'Package Purchase',
+        amount: -7500,
+        balanceBefore: 7500,
+        balanceAfter: 0,
+        reason: 'Package Purchase',
+        referenceId: 'pkg_golden',
+        createdBy: user1.id,
+        status: 'completed',
+        createdAt: new Date(Date.now() - 10 * 86400000 + 60000).toISOString(),
+      },
+    ],
+    auditLogs: [
+      {
+        id: 'audit_init_01',
+        adminId: 'SYSTEM',
+        userId: user1.id,
+        action: 'DEPOSIT_CREDIT',
+        oldBalance: 0,
+        newBalance: 7500,
+        reference: 'dep_init_01',
+        ip: '127.0.0.1',
+        timestamp: new Date(Date.now() - 10 * 86400000).toISOString(),
+      },
+    ],
+    apkVersions: defaultApkVersions,
   };
 
   saveStore();
@@ -813,6 +1097,66 @@ export function saveStore() {
   } catch (e) {
     console.error('Error saving store:', e);
   }
+}
+
+/**
+ * PATCH 2 — Wallet Transaction Ledger (MANDATORY)
+ * Never update wallet balance directly.
+ * Every wallet balance change must create a wallet_transactions ledger entry.
+ */
+export function recordWalletLedgerEntry(entry: Omit<WalletTransactionLedger, 'id' | 'createdAt'>): WalletTransactionLedger {
+  const currentStore = getStore();
+  if (!currentStore.walletTransactions) currentStore.walletTransactions = [];
+  const ledgerItem: WalletTransactionLedger = {
+    ...entry,
+    id: `wtx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    createdAt: new Date().toISOString(),
+  };
+  currentStore.walletTransactions.unshift(ledgerItem);
+  if (currentStore.walletTransactions.length > 2000) {
+    currentStore.walletTransactions = currentStore.walletTransactions.slice(0, 2000);
+  }
+  return ledgerItem;
+}
+
+/**
+ * PATCH 13 — Financial Audit Log (IMMUTABLE)
+ * Records all financial operations permanently.
+ */
+export function recordFinancialAuditLog(log: Omit<AuditLog, 'id' | 'timestamp'>): AuditLog {
+  const currentStore = getStore();
+  if (!currentStore.auditLogs) currentStore.auditLogs = [];
+  const auditItem: AuditLog = {
+    ...log,
+    id: `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    timestamp: new Date().toISOString(),
+  };
+  currentStore.auditLogs.unshift(auditItem);
+  return auditItem;
+}
+
+/**
+ * PATCH 1 — Transaction Lock Unique Index Simulation
+ * MongoDB unique compound index: (trxId + paymentMethod)
+ */
+export function getUniqueTrxKey(trxId?: string, paymentMethod?: string): string {
+  const cleanTrx = (trxId || '').trim().toUpperCase();
+  const cleanMethod = (paymentMethod || '').trim().toLowerCase();
+  return `${cleanTrx}_${cleanMethod}`;
+}
+
+export function isTrxUnique(trxId: string, paymentMethod: string, excludeId?: string): boolean {
+  if (!trxId || !paymentMethod) return false;
+  const currentStore = getStore();
+  const key = getUniqueTrxKey(trxId, paymentMethod);
+  const existingSms = currentStore.smsTransactions.find(
+    s => s.id !== excludeId && s.trxId && getUniqueTrxKey(s.trxId, (s as any).paymentMethod || s.method || (s as any).sender) === key && (s.used || s.verified)
+  );
+  if (existingSms) return false;
+  const existingDep = currentStore.deposits.find(
+    d => d.id !== excludeId && d.transactionId && getUniqueTrxKey(d.transactionId, d.paymentMethod) === key && (d.status === 'approved' || (d as any).status === 'auto_approved')
+  );
+  return !existingDep;
 }
 
 initializeSeedData();

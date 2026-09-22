@@ -90,13 +90,158 @@ export interface DepositRequest {
   assignedNumber: string;
   senderNumber: string;
   transactionId: string;
-  screenshotUrl: string;
+  screenshotUrl?: string;
   status: 'pending' | 'approved' | 'rejected';
-  verificationType: 'manual' | 'hybrid';
+  verificationType: 'manual' | 'hybrid' | 'auto';
+  autoVerified?: boolean;
+  matchedSmsId?: string;
   rejectedReason?: string;
   createdAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
+}
+
+export interface SmsTransaction {
+  id: string;
+  trxId: string;
+  method: 'bKash' | 'Nagad';
+  amount: number;
+  senderNumber: string;
+  balanceAfter?: number | string;
+  smsTime: string;
+  rawSms: string;
+  deviceId: string;
+  verified: boolean;
+  used: boolean;
+  usedByUser?: string | null;
+  matchedDepositId?: string | null;
+  queueStatus?: 'Received' | 'Parsed' | 'Synced' | 'Verified' | 'Used' | 'Failed';
+  retryCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WalletTransactionLedger {
+  id: string;
+  userId: string;
+  transactionType: 'Deposit Verification' | 'Referral Bonus' | 'Gift Balance' | 'Withdrawal' | 'Package Purchase' | 'Task Reward' | 'Salary' | 'Manual Adjustment';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  reason: string;
+  referenceId?: string;
+  createdBy: string;
+  status: 'completed' | 'pending' | 'failed' | 'rolled_back';
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  adminId: string;
+  userId: string;
+  action: string;
+  oldBalance: number;
+  newBalance: number;
+  reference: string;
+  ip: string;
+  timestamp: string;
+}
+
+export interface ApkVersionRecord {
+  id: string;
+  version: string;
+  releaseNotes: string;
+  fileSize: string;
+  downloadUrl: string;
+  downloadCount: number;
+  isCurrent: boolean;
+  minSupportedVersion?: string;
+  forceUpdate: boolean;
+  releasedAt: string;
+  uploadedBy?: string;
+}
+
+export interface VerifyDevice {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  phoneNumber: string;
+  deviceToken: string;
+  batteryPercent: number;
+  networkType: string;
+  status: 'online' | 'offline';
+  lastSyncAt: string;
+  lastHeartbeatAt: string;
+  totalSmsForwarded: number;
+  appVersion: string;
+  isBanned: boolean;
+}
+
+export interface MfsVerificationSettings {
+  autoVerificationEnabled: boolean;
+  manualVerificationEnabled: boolean;
+  fallbackManualReview: boolean;
+  verificationTimeoutMinutes: number;
+  allowedSmsAgeHours: number;
+  enableDeviceSync: boolean;
+  deviceSecretToken: string;
+  apkDownloadUrl: string;
+  latestApkVersion: string;
+  forceUpdateApk: boolean;
+}
+
+export interface VerificationLog {
+  id: string;
+  depositId?: string;
+  userId: string;
+  userPhone?: string;
+  trxId: string;
+  paymentMethod: string;
+  amount: number;
+  status: 'auto_approved' | 'pending_unmatched' | 'fraud_duplicate' | 'fraud_mismatch' | 'manual_approved' | 'manual_rejected';
+  score?: number;
+  scoreBreakdown?: {
+    trxIdMatch: boolean;
+    amountMatch: boolean;
+    senderMatch: boolean;
+    methodMatch: boolean;
+    unusedCheck: boolean;
+    timeValid: boolean;
+    senderOwnershipPassed: boolean;
+  };
+  matchedSmsId?: string;
+  reason?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface FraudLog {
+  id: string;
+  type: 'duplicate_trx' | 'reused_trx' | 'wrong_amount' | 'wrong_sender' | 'expired_sms' | 'suspicious_device' | 'suspicious_sender_sharing' | 'blocked_device' | 'duplicate_deposit_spam';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  trxId?: string;
+  userId?: string;
+  userPhone?: string;
+  senderNumber?: string;
+  deviceId?: string;
+  details: string;
+  createdAt: string;
+  resolved?: boolean;
+}
+
+export interface WithdrawCard {
+  id: string;
+  amount: number; // in TK (e.g. 460, 1680, 5800, etc.)
+  label?: string; // e.g., "Mini Payout", "Standard", "Executive VIP"
+  badge?: string; // e.g., "POPULAR", "HOT", "VIP ONLY", "FAST PAYOUT", "STARTER"
+  badgeColor?: 'emerald' | 'amber' | 'cyan' | 'purple' | 'rose' | 'blue';
+  minRole?: UserRole | 'All';
+  isTrialAllowed?: boolean; // whether available to free trial (like 100 TK card)
+  enabled: boolean;
+  order: number;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WithdrawRequest {
@@ -341,6 +486,7 @@ export interface HomeSlider {
   id: string;
   title: string;
   subtitle?: string;
+  tag?: string;
   imageUrl: string;
   buttonText?: string;
   buttonLink?: string;

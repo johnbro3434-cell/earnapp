@@ -11,11 +11,13 @@ import {
   RefreshCw,
   X,
   Eye,
+  Sparkles,
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useToast } from '../../context/ToastContext';
 import { HomeSlider } from '../../types';
 import { ImageUploadInput } from '../common/ImageUploadInput';
+import { HomeCarousel } from '../dashboard/HomeCarousel';
 
 export function SlidersTab() {
   const { showToast } = useToast();
@@ -27,6 +29,7 @@ export function SlidersTab() {
   const [editingSlider, setEditingSlider] = useState<HomeSlider | null>(null);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
+  const [tag, setTag] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [buttonText, setButtonText] = useState('Explore Now');
   const [buttonLink, setButtonLink] = useState('/');
@@ -56,9 +59,10 @@ export function SlidersTab() {
     setEditingSlider(null);
     setTitle('');
     setSubtitle('');
-    setImageUrl('');
-    setButtonText('Explore Now');
-    setButtonLink('/');
+    setTag('মাত্র ১X ওয়েজারিং!');
+    setImageUrl('/banners/nagad_bonus.jpg');
+    setButtonText('ডিপোজিট করুন');
+    setButtonLink('wallet');
     setSortOrder(sliders.length + 1);
     setStatus('active');
     setShowModal(true);
@@ -68,12 +72,39 @@ export function SlidersTab() {
     setEditingSlider(slider);
     setTitle(slider.title);
     setSubtitle(slider.subtitle || '');
+    setTag(slider.tag || '');
     setImageUrl(slider.imageUrl);
     setButtonText(slider.buttonText || 'Explore Now');
     setButtonLink(slider.buttonLink || '/');
     setSortOrder(slider.sortOrder);
     setStatus(slider.status);
     setShowModal(true);
+  };
+
+  const applyTemplate = (type: 'nagad' | 'bkash' | 'tasks') => {
+    if (type === 'nagad') {
+      setTitle('৮% পর্যন্ত এক্সট্রা নগদ পেমেন্টে');
+      setSubtitle('* শর্তাদি এবং শর্তাবলী প্রযোজ্য | নগদ ডিপোজিটে ক্যাশব্যাক বোনাস');
+      setTag('মাত্র ১X ওয়েজারিং!');
+      setImageUrl('/banners/nagad_bonus.jpg');
+      setButtonText('ডিপোজিট করুন');
+      setButtonLink('wallet');
+    } else if (type === 'bkash') {
+      setTitle('VIP মেম্বারশিপ আপগ্রেড - দৈনিক ৭৫০৳ পর্যন্ত ইনকাম');
+      setSubtitle('১০ সেকেন্ড স্পন্সর ভিডিও এবং লাইফটাইম ৩-টায়ার রেফারেল কমিশন');
+      setTag('VIP এক্সক্লুসিভ');
+      setImageUrl('/banners/bkash_vip.jpg');
+      setButtonText('প্যাকেজ দেখুন');
+      setButtonLink('packages');
+    } else {
+      setTitle('প্রতিদিন ১০ সেকেন্ড ভিডিও দেখে ১০০৳ পর্যন্ত আর্ন করুন');
+      setSubtitle('ফ্রি ট্রায়াল মেম্বার ও ভিআইপিদের জন্য নিশ্চিত ইনস্ট্যান্ট বিকাশ/নগদ পেমেন্ট');
+      setTag('ডেইলি স্পন্সর টাস্ক');
+      setImageUrl('https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=1200&auto=format&fit=crop&q=80');
+      setButtonText('টাস্ক শুরু করুন');
+      setButtonLink('tasks');
+    }
+    showToast('info', 'Template Applied', 'Banner details loaded into form.');
   };
 
   const handleSaveSlider = async (e: React.FormEvent) => {
@@ -91,6 +122,7 @@ export function SlidersTab() {
           body: JSON.stringify({
             title,
             subtitle,
+            tag,
             imageUrl,
             buttonText,
             buttonLink,
@@ -105,6 +137,7 @@ export function SlidersTab() {
           body: JSON.stringify({
             title,
             subtitle,
+            tag,
             imageUrl,
             buttonText,
             buttonLink,
@@ -117,7 +150,7 @@ export function SlidersTab() {
       setShowModal(false);
       fetchSliders();
     } catch (err: any) {
-      showToast('error', 'Save Failed', err.message || 'Could not save slider.');
+      showToast('error', 'Save Failed', err.message || 'Could not save slider');
     } finally {
       setSaving(false);
     }
@@ -180,6 +213,31 @@ export function SlidersTab() {
             <span>Add New Slider</span>
           </button>
         </div>
+      </div>
+
+      {/* Live Homepage Carousel Preview */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-5 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-800/80">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-200">
+              Live Homepage Carousel (Real-time User View)
+            </h3>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 font-bold border border-emerald-500/20">
+              {sliders.filter((s) => s.status === 'active').length} Active
+            </span>
+            <span className="text-slate-500">•</span>
+            <span>Autoplay: 5s</span>
+            <span className="text-slate-500">•</span>
+            <span>Mobile Swipe Enabled</span>
+          </div>
+        </div>
+        <HomeCarousel
+          onNavigate={(tab) => showToast('info', 'Carousel Clicked', `User would navigate to: /${tab}`)}
+          isAdmin={true}
+        />
       </div>
 
       {/* Sliders Grid */}
@@ -302,19 +360,65 @@ export function SlidersTab() {
               </button>
             </div>
 
+            {/* 1-Click Fast Templates */}
+            <div className="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+              <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>1-Click Preset Templates (যেমন ইউজারের ব্যানার)</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyTemplate('nagad')}
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[11px] font-bold border border-rose-500/30 transition cursor-pointer"
+                >
+                  ⚡ নগদ ৮% বোনাস ব্যানার
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyTemplate('bkash')}
+                  className="px-2.5 py-1 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 text-[11px] font-bold border border-pink-500/30 transition cursor-pointer"
+                >
+                  💎 বিকাশ VIP আপগ্রেড
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyTemplate('tasks')}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 transition cursor-pointer"
+                >
+                  ▶️ ১০ সেকেন্ড ভিডিও টাস্ক
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleSaveSlider} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Slider Main Heading / Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Earn Daily Micro-Task Rewards"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Slider Main Heading / Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. ৮% পর্যন্ত এক্সট্রা নগদ পেমেন্টে"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Badge Tag (যেমন মাত্র ১X)
+                  </label>
+                  <input
+                    type="text"
+                    value={tag}
+                    onChange={(e) => setTag(e.target.value)}
+                    placeholder="মাত্র ১X ওয়েজারিং!"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-rose-300 font-bold text-xs focus:outline-none focus:border-rose-500"
+                  />
+                </div>
               </div>
 
               <div>

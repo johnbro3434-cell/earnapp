@@ -30,27 +30,27 @@ export function RegisterPage({ onNavigate, onRegisterSuccess }: RegisterPageProp
 
     const cleanPhone = phone.replace(/[\s-]/g, '');
     if (!cleanPhone) {
-      setError('Please enter your Bangladesh phone number.');
+      setError('অনুগ্রহ করে আপনার বাংলাদেশি মোবাইল নম্বর লিখুন।');
       return;
     }
 
     if (!/^(?:\+8801|8801|01)[3-9]\d{8}$/.test(cleanPhone)) {
-      setError('Invalid phone number. Must be a valid 11-digit Bangladesh mobile number (e.g. 017xxxxxxxx).');
+      setError('সঠিক ১১ ডিজিটের বাংলাদেশি মোবাইল নম্বর প্রদান করুন (যেমন: 017xxxxxxxx)।');
       return;
     }
 
     if (!password || password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+      setError('পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে।');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('পাসওয়ার্ড দুটি মিলছে না। একই পাসওয়ার্ড দিন।');
       return;
     }
 
     if (!referralCode || !referralCode.trim()) {
-      setError('Referral code is strictly required. Account cannot be created without a referral code. (রেফার কোড আবশ্যক, রেফার কোড ছাড়া অ্যাকাউন্ট তৈরি করা সম্ভব নয়)।');
+      setError('রেফার কোড আবশ্যক! রেফার কোড ছাড়া অ্যাকাউন্ট তৈরি করা সম্ভব নয়।');
       return;
     }
 
@@ -59,7 +59,7 @@ export function RegisterPage({ onNavigate, onRegisterSuccess }: RegisterPageProp
       await register(cleanPhone, password, referralCode.trim().toUpperCase());
       onRegisterSuccess();
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+      setError(err.message || 'রেজিস্ট্রেশন সম্পন্ন হতে পারেনি। অনুগ্রহ করে আবার চেষ্টা করুন।');
     } finally {
       setLoading(false);
     }

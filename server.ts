@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
 import routes from './server/routes';
 import { initSocketIO } from './server/socket';
+import { connectMongoDB } from './server/database/mongoose';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -16,6 +17,11 @@ async function startServer() {
 
   // Initialize Socket.IO on the same HTTP server
   initSocketIO(httpServer);
+
+  // Initialize MongoDB Atlas connection (falls back to local store if MONGODB_URI not provided)
+  connectMongoDB().catch(err => {
+    console.warn('[Database] Optional MongoDB Atlas init deferred:', err.message);
+  });
 
   // Middleware
   app.use(express.json({ limit: '10mb' }));
@@ -32,8 +38,15 @@ async function startServer() {
     });
   });
 
+  // APK download routes
+  app.get(['/downloads/EarnHubVerify.apk', '/api/downloads/EarnHubVerify.apk'], (req, res) => {
+    const apkPath = path.join(process.cwd(), 'public', 'downloads', 'EarnHubVerify.apk');
+    res.download(apkPath, 'EarnHubVerify.apk');
+  });
+
   // Mount API routes
   app.use('/api', routes);
+  app.use('/', routes);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

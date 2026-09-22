@@ -33,7 +33,7 @@ export function MyAccountView() {
     if (!referralLink) return;
     navigator.clipboard.writeText(referralLink);
     setCopiedLink(true);
-    showToast('success', 'Referral Link Copied', 'Share with friends to earn team commissions!');
+    showToast('success', 'রেফারেল লিংক কপি সম্পন্ন!', 'বন্ধুদের সাথে শেয়ার করে রেফারেল বোনাস উপার্জন করুন!');
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
@@ -41,7 +41,7 @@ export function MyAccountView() {
     if (!user?.referralCode) return;
     navigator.clipboard.writeText(user.referralCode);
     setCopiedCode(true);
-    showToast('success', 'Referral Code Copied', user.referralCode);
+    showToast('success', 'রেফার কোড কপি সম্পন্ন!', `রেফার কোড: ${user.referralCode}`);
     setTimeout(() => setCopiedCode(false), 2500);
   };
 

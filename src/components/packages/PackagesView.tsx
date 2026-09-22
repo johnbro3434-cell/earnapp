@@ -28,8 +28,8 @@ export function PackagesView({ onNavigate }: PackagesViewProps) {
     if (!wallet || wallet.balance < pkg.price) {
       showToast(
         'error',
-        'Insufficient Balance',
-        `You need ৳${pkg.price.toLocaleString()} in your wallet. Please deposit funds first.`
+        'অপর্যাপ্ত ব্যালেন্স',
+        `এই প্যাকেজটি কেনার জন্য আপনার ওয়ালেটে ৳${pkg.price.toLocaleString()} টাকা প্রয়োজন। অনুগ্রহ করে প্রথমে ডিপোজিট করুন।`
       );
       onNavigate('wallet');
       return;
@@ -44,12 +44,12 @@ export function PackagesView({ onNavigate }: PackagesViewProps) {
 
       showToast(
         'success',
-        'Package Activated!',
-        `Congratulations! You have activated the ${pkg.name} Tier (${pkg.videosPerDay} videos/day).`
+        'প্যাকেজ সক্রিয় হয়েছে!',
+        `অভিনন্দন! আপনার ${pkg.name} প্যাকেজ সফলভাবে চালু হয়েছে (প্রতিদিন ${pkg.videosPerDay}টি ভিডিও টাস্ক)।`
       );
       await refreshUserData();
     } catch (err: any) {
-      showToast('error', 'Purchase Failed', err.message || 'Could not activate package.');
+      showToast('error', 'প্যাকেজ ক্রয় ব্যর্থ', err.message || 'প্যাকেজ সক্রিয় করা যায়নি।');
     } finally {
       setPurchasingId(null);
     }

@@ -20,22 +20,22 @@ export function PromotionView() {
 
   const handleClaimPromo = async (codeToClaim: string) => {
     if (!codeToClaim) {
-      showToast('error', 'Code Required', 'Please enter a valid promotion code.');
+      showToast('error', 'প্রমো কোড দিন', 'অনুগ্রহ করে একটি সঠিক প্রমো কোড লিখুন।');
       return;
     }
 
     try {
       setClaiming(true);
-      const res = await apiRequest('/api/promotions/claim', {
+      const res = await apiRequest('/api/promotions/claim-code', {
         method: 'POST',
         body: JSON.stringify({ code: codeToClaim.trim().toUpperCase() }),
       });
 
-      showToast('success', 'Promo Bonus Claimed!', `৳${res.rewardAmount} credited to your wallet balance!`);
+      showToast('success', 'প্রমো বোনাস ক্রেডিট হয়েছে!', `৳${res.rewardAmount} আপনার ওয়ালেট ব্যালেন্সে যোগ করা হয়েছে!`);
       setPromoCodeInput('');
       await refreshUserData();
     } catch (err: any) {
-      showToast('error', 'Claim Failed', err.message || 'Invalid or expired promotion code.');
+      showToast('error', 'প্রমো কোড ব্যর্থ', err.message || 'প্রমো কোডটি সঠিক নয় অথবা মেয়াদ শেষ হয়ে গেছে।');
     } finally {
       setClaiming(false);
     }
