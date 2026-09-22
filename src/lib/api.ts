@@ -1,9 +1,30 @@
 export const TOKEN_KEY = 'earnhub_bd_token';
 export const DEVICE_FP_KEY = 'earnhub_bd_device_fp';
 
+export function getDeviceFingerprint(): string {
+  let fp = localStorage.getItem(DEVICE_FP_KEY);
+  if (!fp) {
+    fp = 'fp_bd_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+    localStorage.setItem(DEVICE_FP_KEY, fp);
+  }
+  return fp;
+}
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function removeToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 export function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem(TOKEN_KEY);
-  const fp = localStorage.getItem(DEVICE_FP_KEY) || 'fp_default_dev';
+  const fp = getDeviceFingerprint();
   const headers: Record<string, string> = {
     'x-device-fingerprint': fp,
   };
@@ -22,12 +43,18 @@ export function removeAuthToken() {
 }
 
 export function getApiBaseUrl(): string {
-  // Always return relative path '' in browser so requests hit the same host seamlessly
   if (typeof window !== 'undefined') {
     return '';
   }
   const isProd = typeof process !== 'undefined' && process.env?.NODE_ENV === 'production';
   return isProd ? '' : 'http://localhost:3000';
+}
+
+export async function apiRequest<T = any>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  return apiFetch(endpoint, options);
 }
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
